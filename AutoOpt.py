@@ -181,6 +181,7 @@ def SingleChannelScattering(util: utility_t):
             scatter.CTRL.CALC_TYPE=util.CALC_TYPE
             scatter.CTRL.CALC_FILE=f"'{util.WORKING_DIR}ctrl/scatter.calc'"
             scatter.SetCalc(util.CALC_TYPE,f"{util.NQMCC_DIR}ctrl/calc/{util.CALC_FILE}")
+            scatter.CALC.NUM_OPT_EVALUATIONS=str(util.NUM_OPT_EVALUATIONS)
             scatter.CTRL.CONST_FILE=f"'{util.NQMCC_DIR}constants/{const}'"
             scatter.CTRL.L2BP_FILE=f"'{util.NQMCC_DIR}pots/{pot2b}'"
             scatter.CTRL.L3BP_FILE=f"'{util.NQMCC_DIR}pots/{pot3b}'"
