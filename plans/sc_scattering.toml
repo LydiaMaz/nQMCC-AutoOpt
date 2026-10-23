@@ -1,0 +1,16 @@
+# single-channel scattering: correlations optimized at every BSCAT point on the
+# channel's SS block (the WSE scan before them stays in bscat.py).
+# step = max(rel*|value|, abs)
+
+[groups.corr]
+QSSP1 = { rel = 0.2 }
+QSSP2 = { rel = 0.2 }
+SPU   = { rel = 0.2 }
+SPV   = { rel = 0.2 }
+SPA   = { rel = 0.2 }
+SPB   = { rel = 0.2 }
+SPC   = { rel = 0.2 }
+SPK   = { rel = 0.2 }
+SPL   = { rel = 0.2 }
+WSR   = { rel = 0.2 }
+WSA   = { rel = 0.2 }

@@ -1,0 +1,49 @@
+# p-shell nuclei (Li6 - Be8): main correlations, first SS block, then everything.
+# step = max(rel*|value|, abs)
+
+[scan]
+ESEP_factor = [0.9, 1.0, 1.1]   # multiplies the starting deck's ESEP
+
+[groups.main]
+ESEP  = { rel = 0.5 }
+ETA   = { abs = 0.0065 }
+ZETA  = { rel = 0.25 }
+FSCAL = { rel = 0.25 }
+AC    = { rel = 0.25 }
+AA    = { rel = 0.25 }
+AR    = { rel = 0.25 }
+ALPHA = { rel = 0.25 }
+BETA  = { rel = 0.25 }
+"Q*"  = { rel = 0.25 }          # every Q key the deck has
+
+[groups.threebody]
+DELTA   = { abs = 0.15 }
+EPSILON = { abs = 0.15 }
+THETA   = { abs = 0.15 }
+UPSILON = { abs = 0.15 }
+RSCAL   = { abs = 0.15 }
+USCAL   = { abs = 0.15 }
+
+[groups.ss]
+"SP?"  = { abs = 0.2 }          # SPU SPV SPR SPA SPB SPC SPK SPL
+"PP?"  = { abs = 0.2 }          # PPU ... PPL (decks with NPPART >= 2)
+WSE    = { abs = 0.2 }
+WSV    = { abs = 0.2 }
+WSR    = { abs = 0.2 }
+WSA    = { abs = 0.2 }
+WBRHO  = { abs = 0.2 }
+WBALPH = { abs = 0.2 }
+
+[[phase]]
+name   = "p0_main"
+params = ["main", "threebody"]
+
+[[phase]]
+name   = "p1_ss0"
+params = ["ss"]
+blocks = "first"
+
+[[phase]]
+name   = "p2_full"
+params = ["main", "threebody", "ss"]
+blocks = "all"
