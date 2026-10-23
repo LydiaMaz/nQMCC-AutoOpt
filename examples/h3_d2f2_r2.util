@@ -1,0 +1,17 @@
+h3_d2f2_r2                                                                           name
+bound                                                                             system_type
+mpirun -np 4
+/Users/lydiamazeeva/QMC/three_body/nQMCC/                                         nqmcc_dir
+/Users/lydiamazeeva/QMC/three_body/nQMCC/build/bin/                               bin_dir
+/Users/lydiamazeeva/QMC/nQMCC/BoundStates/refactor/test/                          working_dir
+/Users/lydiamazeeva/QMC/nQMCC/BoundStates/refactor/nQMCC-AutoOpt/examples/h3_d2f2_r2.ctrl   ctrl
+1                                                                                 num_pots
+nv19_D2F2.const                                                                   constant_file
+nv2_Ia.2bp                                                                        2b_potential_files
+nv3_Ia_star_d2f2.3bp                                                              3b_potential_files
+1 200000 0                                                                        num_blocks block_size walkers_per_node
+0.2 100                                                                           opt_scale   num_opt_evaluations
+1  opt.calc                                                                       calc_type  calc_file
+1.0  2.0  0.0  1.5  1.5                                                           cfe cfv cfr nr_limit pr_limit
+0.0 0.4 5                                                                         esep_start esep_stop esep_num
+0.005 0.2 0.2                                                                     eta_flat 3bp_flat ss_flat
