@@ -1,0 +1,22 @@
+'charge'                                     basis
+'constants/nv19_D2F2.const'                       constants_file
+'pots/nv2_Ia.2bp'  'pots/nv3_Ia_star_d2f2.3bp'              2b_file 3b_file
+1  1                                         ke  lemp
+0 'dummy.calc'                               calc_type calc_file
+.true.                                       bra_eq_ket
+'variational'                                Wavefunction_type
+'nuclei/params/h3.params'                    param_file
+'scratch/nuclei/h3.nv2_Ia.nv3_Ia_star'                     deck_file
+0  'kal/h3.spin' 'kal/h3.isospin'            read_write_spin_phi  spin_file isospin_file
+0  'kal/h3.ylm'  'kal/h3.phi'                read_write_ylm_phi  ylm_file  phi_file
+0  .false.  300.  3600.  10.  .false.        walkers_per_node fault_tolerance min_timeout init_timeout dead_factor isolate_supervisor
+25265137                                     rng_seed
+20  50000                                   num_blocks block_size
+1000   10                                    burn_in num_moves_between
+1.4                                          particle_dx
+.false.  1.6  0.01                           sample_L2 rsam psam
+5120  128  32                                npts one_over_dx fd_factor
+40. 40. 40.                                  ss_limit sp_limit sd_limit
+40.                                          rscat
+0.1  20.0                                    bin_width  maxr
+'scratch/'                                   scratch_dir
