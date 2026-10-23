@@ -25,7 +25,6 @@ import json
 import shutil
 from datetime import datetime
 from pathlib import Path
-import re
 import numpy as np
 from contextlib import redirect_stdout
 from io import StringIO
@@ -95,39 +94,6 @@ def load_dk_unquoted(target, path):
 # Directory and target setup
 # ---------------------------------------------------------------------------
 
-def make_ctrl_paths_relative(ctrl_in, nqmcc_dir, ctrl_out):
-    nqmcc_dir = os.path.normpath(strip_quotes(nqmcc_dir))
-    ctrl_in   = strip_quotes(ctrl_in)
-    ctrl_out  = strip_quotes(ctrl_out)
-
-    with open(ctrl_in, "r") as f:
-        text = f.read()
-
-    def rewrite_token(token):
-        tok = token.strip()
-        quote = None
-        if len(tok) >= 2 and tok[0] == tok[-1] and tok[0] in ("'", '"'):
-            quote = tok[0]
-            tok = tok[1:-1]
-        norm = os.path.normpath(tok)
-        if os.path.isabs(norm) and os.path.normpath(nqmcc_dir) in norm:
-            try:
-                norm = os.path.relpath(norm, os.path.normpath(nqmcc_dir))
-            except Exception:
-                pass
-        if quote:
-            return f"{quote}{norm}{quote}"
-        return norm
-
-    for key in ["CONST_FILE", "L2BP_FILE", "L3BP_FILE", "WALK_FILE", "POT_FILE"]:
-        pat = re.compile(rf"({key}\s*=\s*)([^\n#]+)")
-        def repl(m):
-            return m.group(1) + rewrite_token(m.group(2))
-        text = pat.sub(repl, text)
-
-    with open(ctrl_out, "w") as f:
-        f.write(text)
-
 def apply_calc_overrides(target, util):
     """Override calc_t fields with per-nucleus values from util."""
     target.CALC.NUM_OPT_EVALUATIONS  = str(util.NUM_OPT_EVALUATIONS)
@@ -139,11 +105,7 @@ def apply_calc_overrides(target, util):
 
 def build_target(util, pot_dir, pot_index):
     """Build a fresh wavefunction_t for the given potential pair."""
-    base_ctrl_in = strip_quotes(util.CTRL_FILE)
-    patched_ctrl = f"{pot_dir}ctrl/base.ctrl"
-    make_ctrl_paths_relative(base_ctrl_in, util.NQMCC_DIR, patched_ctrl)
-
-    target = wavefunction_t(patched_ctrl, util.NQMCC_DIR, util.BIN_DIR, util.RUN_CMD)
+    target = wavefunction_t(util.CTRL_FILE, util.NQMCC_DIR, util.BIN_DIR, util.RUN_CMD)
     target.CTRL.FILE_NAME          = f"{pot_dir}ctrl/target.ctrl"
     target.CTRL.CALC_TYPE          = util.CALC_TYPE
     target.CTRL.CALC_FILE          = quote_path(f"{pot_dir}ctrl/target.calc")
