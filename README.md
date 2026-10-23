@@ -25,6 +25,8 @@ To run a full optimization:
 ```bash
 python /absolute/path/to/AutoOpt.py --utility /absolute/path/to/file.util
 ```
+Requires Python ≥ 3.12 (nested-quote f-strings) and numpy. The ctrl, calc and deck readers follow the nQMCC input format with a `calc_type calc_file` ctrl line (nQMCC `add_d2f2` branch and later); see `examples/` for working util files.
+
 > ✅ Make sure your `utility` file includes the following fields:
 - `NAME`: label for outputs
 - `SYSTEM_TYPE`: bound, sc_scattering
@@ -39,7 +41,9 @@ python /absolute/path/to/AutoOpt.py --utility /absolute/path/to/file.util
 - `THREE_BODY_POT_FILES`: list of 3 body files assumed in nQMCC/pots/
 - `NUM_BLOCKS BLOCK_SIZE WALKERS_PER_NODE`: Monte Carlo Sample information and topology (0 walkers per node unless Abe says otherwise)
 - `OPT_SCALE NUM_OPT_EVALUATIONS`: Fraction of Current Value in Decks to set bounds and number of total samples in a single COBYLA optimization
+- `CALC_TYPE CALC_FILE`: nQMCC calc type (1 = optimize) and template file in `nQMCC/ctrl/calc/` (e.g. `1 opt.calc`); AutoOpt writes a per-run copy with its own overrides
 > ⚠️ `IF SYSTEM_TYPE == bound`:
+- `CFE CFV CFR NR_LIMIT PR_LIMIT`: optimizer cost = CFE·E + CFV·variance + CFR·(radius penalty above the neutron/proton radius limits); `CFR 0.0` turns the radius limits off
 - `ESEP_START ESEP_STOP ESEP_NUM`: ESEP scale range and number of grid points
 - `ETA_FLAT`: flat step size for ETA parameters
 - `THREE_BODY_FLAT`: flat step size for 3b correlations (delta, epsilon, theta, upsilon, rscal, uscal)
