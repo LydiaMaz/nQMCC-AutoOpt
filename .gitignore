@@ -1,3 +1,5 @@
 __pycache__
 *.out
 logs
+.DS_Store
+*.code-workspace
