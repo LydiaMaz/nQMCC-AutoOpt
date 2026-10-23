@@ -264,24 +264,47 @@ def GenerateZeroDeck(params: parameters_t, file_name):
 # ----------------------------------------------------------------------
     return dk
 # ----------------------------------------------------------------------
+# Deck keys the nQMCC optimizer can vary (SET_OPTIMIZATION in deck.f90).
+# MAIN_KEYS live on deck_t, SS_KEYS on every spatial_symmetry_t block.
+# A key can be absent from a given deck: Q*/PP*/SD* depend on NPPART and
+# NDPART, D2COR/F2COR only exist in decks that carry them.
+# ----------------------------------------------------------------------
+MAIN_KEYS=["ESEP","ETA","ZETA","FSCAL","AC","AA","AR","ALPHA","BETA","GAMMA","UUR","UUA","UUW"
+          ,"SSH_WSE","SSH_WSV","SSH_WSR","SSH_WSA","SSH_WBRHO","SSH_WBALPH"
+          ,"DELTA","EPSILON","THETA","UPSILON","RSCAL","USCAL","D2COR","F2COR"
+          ,"QPS1","QPS2","QSSS1","QSSS2","QSSP1","QSSP2","QSPP1","QSPP2","QPPP1","QPPP2"
+          ,"QSPD1","QSPD2","QSSD1","QSSD2","QPPD1","QPPD2","QSDD1","QSDD2","QPDD1","QPDD2","QDDD1","QDDD2"]
+SS_KEYS=["BETALSN","SPU","SPV","SPR","SPA","SPB","SPC","SPK","SPL"
+        ,"PPU","PPV","PPR","PPA","PPB","PPC","PPK","PPL"
+        ,"WSE","WSV","WSR","WSA","WBRHO","WBALPH"
+        ,"SDU","SDV","SDR","SDA","SDB","SDC","SDK","SDL"
+        ,"PDU","PDV","PDR","PDA","PDB","PDC","PDK","PDL"
+        ,"DDU","DDV","DDR","DDA","DDB","DDC","DDK","DDL"
+        ,"D_WSE","D_WSV","D_WSR","D_WSA","D_WBRHO","D_WBALPH"]
+# ----------------------------------------------------------------------
+def StepSize(value, rel: float, abs_: float):
+# ----------------------------------------------------------------------
+#   rel: fraction of the current value, abs_: floor for zero/small values
+#   always >= 0, since nQMCC sets the bounds to value -/+ step
+    return max(rel*abs(float(value)), abs_)
+# ----------------------------------------------------------------------
 def GenerateOptFile(params: parameters_t, dk_: deck_t, file_name, instructions: list):
 # ----------------------------------------------------------------------
+#   instruction: {"key": K, "rel": r, "abs": a} for MAIN_KEYS,
+#                plus "ss_idx": i for SS_KEYS (list keys get every element)
     opt=GenerateZeroDeck(params,dk_.FILE_NAME)
     opt.FILE_NAME=file_name
-    try:
-        for i in instructions:
-            if i["ss"]:
-                opt.SS[i["ss_idx"]].__dict__[i["key"]]=str(float(dk_.SS[i["ss_idx"]].__dict__[i["key"]])*i["scale"]+i["flat"])
-            else:
-                if isinstance(opt.__dict__[i["key"]],list):
-                    if i.get("all", False):  # Default to False if "all" key doesn't exist
-                        opt.__dict__[i["key"]]=[str(float(v)*i["scale"]+i["flat"]) for v in dk_.__dict__[i["key"]]]
-                    else:
-                        opt.__dict__[i["key"]][i["idx"]]=str(float(dk_.__dict__[i["key"]][i["idx"]])*i["scale"]+i["flat"])
-                else:
-                    opt.__dict__[i["key"]]=str(float(dk_.__dict__[i["key"]])*i["scale"]+i["flat"])
-    except KeyError:
-        print(f"GenerateOptFile *** BAD KEY: {i["key"]} ***")
+    for i in instructions:
+        src=dk_.SS[i["ss_idx"]] if "ss_idx" in i else dk_
+        dst=opt.SS[i["ss_idx"]] if "ss_idx" in i else opt
+        if i["key"] not in src.__dict__:
+            print(f"GenerateOptFile *** {i['key']} NOT IN DECK, SKIPPED ***")
+            continue
+        val=src.__dict__[i["key"]]
+        if isinstance(val,list):
+            dst.__dict__[i["key"]]=[str(StepSize(v,i["rel"],i["abs"])) for v in val]
+        else:
+            dst.__dict__[i["key"]]=str(StepSize(val,i["rel"],i["abs"]))
     opt.Write(params,file_name)
     return opt
 # ----------------------------------------------------------------------

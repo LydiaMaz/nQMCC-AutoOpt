@@ -30,7 +30,7 @@ from io import StringIO
 
 sys.path.append(os.path.dirname(__file__))
 
-from deck import deck_t, GenerateOptFile
+from deck import deck_t, GenerateOptFile, MAIN_KEYS
 from wavefunction import wavefunction_t, InitNShellBoundWF
 from parameters import parameters_t
 
@@ -197,72 +197,25 @@ PHASE_SCALES = {
 
 def build_instructions_base(esep_scale, opt_scale, opt_3b, eta_flat=0.0, target_dk=None):
 
-    inst = [
-        {"ss": False, "key": "ESEP", "idx": 0, "scale": esep_scale, "flat": 0.0},
-        {"ss": False, "key": "ESEP", "idx": 1, "scale": esep_scale, "flat": 0.0},
-        {"ss": False, "key": "ESEP", "idx": 2, "scale": esep_scale, "flat": 0.0},
-        {"ss": False, "key": "ESEP", "idx": 3, "scale": esep_scale, "flat": 0.0},
-
-        {"ss": False, "key": "ETA",   "all": True, "scale": 0.0,      "flat": float(eta_flat)},
-        {"ss": False, "key": "ZETA",  "all": True, "scale": opt_scale, "flat": 0.0},
-        {"ss": False, "key": "FSCAL", "all": True, "scale": opt_scale, "flat": 0.0},
-        {"ss": False, "key": "ALPHA", "all": True, "scale": opt_scale, "flat": 0.0},
-        {"ss": False, "key": "BETA",  "all": True, "scale": opt_scale, "flat": 0.0},
-
-        {"ss": False, "key": "AC",    "all": True, "scale": opt_scale, "flat": 0.0},
-        {"ss": False, "key": "AA",    "all": True, "scale": opt_scale, "flat": 0.0},
-        {"ss": False, "key": "AR",    "all": True, "scale": opt_scale, "flat": 0.0},
-
-        {"ss": False, "key": "DELTA",   "scale": 0, "flat": opt_3b},
-        {"ss": False, "key": "EPSILON", "scale": 0, "flat": opt_3b},
-        {"ss": False, "key": "THETA",   "scale": 0, "flat": opt_3b},
-        {"ss": False, "key": "UPSILON", "scale": 0, "flat": opt_3b},
-        {"ss": False, "key": "RSCAL",   "scale": 0, "flat": opt_3b},
-        {"ss": False, "key": "USCAL",   "scale": 0, "flat": opt_3b},
-    ]
-
-    q_params = [
-        "QPS1",  "QPS2",  "QSSS1", "QSSS2",
-        "QSSP1", "QSSP2", "QSPP1", "QSPP2", "QPPP1", "QPPP2",
-        "QSPD1", "QSPD2", "QSSD1", "QSSD2", "QPPD1", "QPPD2",
-        "QSDD1", "QSDD2", "QPDD1", "QPDD2", "QDDD1", "QDDD2",
-    ]
-    for q_key in q_params:
-        if target_dk is None or hasattr(target_dk, q_key):
-            inst.append({"ss": False, "key": q_key, "scale": opt_scale, "flat": 0.0})
-
+    inst = [{"key": "ESEP", "rel": esep_scale, "abs": 0.0},
+            {"key": "ETA",  "rel": 0.0,        "abs": float(eta_flat)}]
+    inst += [{"key": k, "rel": opt_scale, "abs": 0.0}
+             for k in ["ZETA", "FSCAL", "ALPHA", "BETA", "AC", "AA", "AR"]]
+    inst += [{"key": k, "rel": 0.0, "abs": opt_3b}
+             for k in ["DELTA", "EPSILON", "THETA", "UPSILON", "RSCAL", "USCAL"]]
+    inst += [{"key": k, "rel": opt_scale, "abs": 0.0}
+             for k in MAIN_KEYS if k.startswith("Q") and (target_dk is None or hasattr(target_dk, k))]
     return inst
+
+SS_OPT_KEYS = ["SPU", "SPV", "SPR", "SPA", "SPB", "SPC", "SPK", "SPL",
+               "PPU", "PPV", "PPR", "PPA", "PPB", "PPC", "PPK", "PPL",
+               "WSE", "WSV", "WSR", "WSA", "WBRHO", "WBALPH"]
 
 def build_instructions_ss(ss_indices, flat_scale):
 
     inst = []
     for ssi in ss_indices:
-        inst += [
-            {"ss": True, "ss_idx": ssi, "key": "SPU",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "SPV",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "SPR",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "SPA",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "SPB",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "SPC",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "SPK",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "SPL",    "scale": 0.0, "flat": flat_scale},
-
-            {"ss": True, "ss_idx": ssi, "key": "PPU",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "PPV",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "PPR",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "PPA",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "PPB",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "PPC",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "PPK",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "PPL",    "scale": 0.0, "flat": flat_scale},
-
-            {"ss": True, "ss_idx": ssi, "key": "WSE",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "WSV",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "WSR",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "WSA",    "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "WBRHO",  "scale": 0.0, "flat": flat_scale},
-            {"ss": True, "ss_idx": ssi, "key": "WBALPH", "scale": 0.0, "flat": flat_scale},
-        ]
+        inst += [{"ss_idx": ssi, "key": k, "rel": 0.0, "abs": flat_scale} for k in SS_OPT_KEYS]
     return inst
 
 

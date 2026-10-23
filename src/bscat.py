@@ -54,19 +54,11 @@ def SingleChannelOptimize(bscat:float, \
     BREAK="="*72
 #-----------------------------------------------------------------------
     opt_wse_file_name=f"\'{work_dir}opt/wse.opt\'"
-    wse_i=[{"ss":True,"ss_idx":ssi,"key":"WSE","scale":0, "flat":0.5}]
+    wse_i=[{"ss_idx":ssi,"key":"WSE","rel":0.0,"abs":0.5}]
 #-----------------------------------------------------------------------
-    instructions=[{"ss":False,"key":"QSSP1","scale":opt_scale, "flat":0.0}\
-                 ,{"ss":False,"key":"QSSP2","scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"SPU"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"SPV"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"SPA"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"SPB"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"SPC"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"SPK"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"SPL"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"WSR"  ,"scale":opt_scale, "flat":0.0}\
-                 ,{"ss":True,"ss_idx":ssi,"key":"WSA"  ,"scale":opt_scale, "flat":0.0}]
+    instructions=[{"key":k,"rel":opt_scale,"abs":0.0} for k in ["QSSP1","QSSP2"]]\
+                +[{"ss_idx":ssi,"key":k,"rel":opt_scale,"abs":0.0}\
+                  for k in ["SPU","SPV","SPA","SPB","SPC","SPK","SPL","WSR","WSA"]]
 #-----------------------------------------------------------------------
     instructions_all=instructions+wse_i
 #-----------------------------------------------------------------------
