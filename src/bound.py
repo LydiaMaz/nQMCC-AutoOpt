@@ -428,9 +428,6 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
 
         if n_ss <= 0:
             # No SS blocks — nothing more to do at this scale
-            if best is None or best_e_scale < best["energy"]:
-                best = {"scale": scale, "tag": tag, "energy": best_e_scale,
-                        "variance": best_v_scale, "dk": best_dk_scale, "opt": best_opt_scale}
             continue
 
         # --- Phase 1: first SS block only ---
@@ -459,10 +456,6 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
         inst_ss_all   = build_instructions_ss(list(range(n_ss)), flat_scale=ss_flat_p3)
         ok3, e, v, dk, opt = run_phase(target, "p3_full", inst_base_p3 + inst_ss_all, scale, tag, pot_dir, pair_name, attempts, best_e_scale, e0)
         update_best(ok3, e, v, dk, opt)
-
-        if best is None or best_e_scale < best["energy"]:
-            best = {"scale": scale, "tag": tag, "energy": best_e_scale,
-                    "variance": best_v_scale, "dk": best_dk_scale, "opt": best_opt_scale}
 
     # --- Finalize: copy the best result to the canonical output paths ---
     final_dk  = f"{pot_dir}dk/{pair_name}_optimized.dk"
