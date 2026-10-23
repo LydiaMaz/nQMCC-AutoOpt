@@ -89,12 +89,14 @@ def BoundStates(util: utility_t):
         "results":processed_results,
     }
     out=f"{util.WORKING_DIR}combined_results.json"
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out,"w") as f:
         json.dump(combined_data,f,indent=2)
     print("\nSaved:",out)
 #-----------------------------------------------------------------------
     # Write full log with settings header
     out_file=f"{util.WORKING_DIR}optimization_log.out"
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
     with open(out_file,"w") as f:
         f.write("# Optimization Log (Phased)\n")
         f.write(f"# Generated:           {datetime.now().isoformat()}\n")
@@ -139,7 +141,7 @@ def SingleChannelScattering(util: utility_t):
     target.CTRL.FILE_NAME=f"{util.WORKING_DIR}target.ctrl"
     target.CTRL.NUM_BLOCKS=util.NUM_BLOCKS
     target.CTRL.BLOCK_SIZE=util.BLOCK_SIZE
-    target.CTRL.WALKERS_PER_NODE=util.WALKERS_PER_NODE
+    target.CTRL.NUM_WALKERS_PER_NODE=util.WALKERS_PER_NODE
     target.CTRL.CALC_TYPE=util.CALC_TYPE
     target.CTRL.CALC_FILE=f"'{util.WORKING_DIR}ctrl/target.calc'"
     target.SetCalc(util.CALC_TYPE,f"{util.NQMCC_DIR}ctrl/calc/{util.CALC_FILE}")
@@ -176,7 +178,7 @@ def SingleChannelScattering(util: utility_t):
             scatter.CTRL.FILE_NAME=f"{util.WORKING_DIR}scatter.ctrl"
             scatter.CTRL.NUM_BLOCKS=util.NUM_BLOCKS
             scatter.CTRL.BLOCK_SIZE=util.BLOCK_SIZE
-            scatter.CTRL.WALKERS_PER_NODE=util.WALKERS_PER_NODE
+            scatter.CTRL.NUM_WALKERS_PER_NODE=util.WALKERS_PER_NODE
             scatter.CTRL.CALC_TYPE=util.CALC_TYPE
             scatter.CTRL.CALC_FILE=f"'{util.WORKING_DIR}ctrl/scatter.calc'"
             scatter.SetCalc(util.CALC_TYPE,f"{util.NQMCC_DIR}ctrl/calc/{util.CALC_FILE}")

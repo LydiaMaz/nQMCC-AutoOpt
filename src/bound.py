@@ -131,7 +131,9 @@ def make_ctrl_paths_relative(ctrl_in, nqmcc_dir, ctrl_out):
 def apply_calc_overrides(target, util):
     """Override calc_t fields with per-nucleus values from util."""
     target.CALC.NUM_OPT_EVALUATIONS  = str(util.NUM_OPT_EVALUATIONS)
-    target.CALC.LIMIT_CHARGE_RADII   = util.LIMIT_CHARGE_RADII
+    target.CALC.CFE                  = util.CFE
+    target.CALC.CFV                  = util.CFV
+    target.CALC.CFR                  = util.CFR
     target.CALC.NEUTRON_RADIUS_LIMIT = util.NEUTRON_RADIUS_LIMIT
     target.CALC.PROTON_RADIUS_LIMIT  = util.PROTON_RADIUS_LIMIT
 
@@ -149,7 +151,9 @@ def build_target(util, pot_dir, pot_index):
     apply_calc_overrides(target, util)
     target.CTRL.NUM_BLOCKS         = util.NUM_BLOCKS
     target.CTRL.BLOCK_SIZE         = util.BLOCK_SIZE
-    target.CTRL.WALKERS_PER_NODE   = util.WALKERS_PER_NODE
+    target.CTRL.NUM_WALKERS_PER_NODE = util.WALKERS_PER_NODE
+    ensure_dir(f"{pot_dir}scratch")
+    target.CTRL.SCRATCH_DIR        = quote_path(f"{pot_dir}scratch/")
 
     target.CTRL.CONST_FILE = quote_path(f"{util.NQMCC_DIR}constants/{util.CONSTANTS_FILES[pot_index]}")
     target.CTRL.L2BP_FILE  = quote_path(f"{util.NQMCC_DIR}pots/{util.TWO_BODY_FILES[pot_index]}")
@@ -200,11 +204,15 @@ def try_optimize(target, opt_file, dk_out, log_prefix, instructions, e_ref, requ
     opt_file   = strip_quotes(opt_file)
     dk_out     = strip_quotes(dk_out)
     log_prefix = strip_quotes(log_prefix)
+    ensure_dir(os.path.dirname(opt_file))
+    ensure_dir(os.path.dirname(dk_out))
+    ensure_dir(os.path.dirname(log_prefix))
 
     opt = GenerateOptFile(target.PARAMS, target.DK, quote_path(opt_file), instructions)
     opt.UpdateFloats(target.PARAMS, 6)
 
     log_txt = f"{log_prefix}.txt"
+    ensure_dir(os.path.dirname(log_txt))
     buf = StringIO()
     try:
         with redirect_stdout(buf):
@@ -361,13 +369,10 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
     # --- Build initial target and optionally seed from a He-4 alpha core ---
     target0 = build_target(util, pot_dir, pot_index)
 
-    limit_radii = str(util.LIMIT_CHARGE_RADII).strip().lower() == ".true."
-    if limit_radii:
-        print(f"LIMIT_CHARGE_RADII:   True")
+    print(f"COST FACTORS (E VAR RADII): {util.CFE} {util.CFV} {util.CFR}")
+    if float(util.CFR) != 0.0:
         print(f"NEUTRON_RADIUS_LIMIT: {util.NEUTRON_RADIUS_LIMIT}")
         print(f"PROTON_RADIUS_LIMIT:  {util.PROTON_RADIUS_LIMIT}")
-    else:
-        print(f"LIMIT_CHARGE_RADII:   False")
 
     starting_deck_label = "ctrl-default"
     if getattr(util, "ALPHA_DIR", None):
@@ -439,12 +444,16 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
 
         def update_best(ok, e, v, dk, opt):
             """Update per-scale best state and reload target deck."""
-            nonlocal best_e_scale, best_v_scale, best_dk_scale, best_opt_scale
+            nonlocal best, best_e_scale, best_v_scale, best_dk_scale, best_opt_scale
             if ok:
                 best_e_scale   = float(e)
                 best_v_scale   = float(v) if is_finite(v) else float("nan")
                 best_dk_scale  = dk
                 best_opt_scale = opt
+                if best is None or best_e_scale < best["energy"]:
+                    best = {"scale": scale, "tag": tag, "energy": best_e_scale,
+                            "variance": best_v_scale, "dk": best_dk_scale,
+                            "opt": best_opt_scale}
             # Always reload — on success to advance, on failure to recover
             load_dk_unquoted(target, best_dk_scale)
 

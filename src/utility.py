@@ -55,7 +55,7 @@ class utility_t:
 #-----------------------------------------------------------------------
         if self.SYSTEM_TYPE.lower() == "bound":
             data=data[14:]
-            self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT=data[0][:3]
+            self.CFE,self.CFV,self.CFR,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT=data[0][:5]
             self.ESEP_START,self.ESEP_STOP,self.ESEP_NUM=float(data[1][0]),float(data[1][1]),int(data[1][2])
             self.ETA_FLAT,self.THREE_BODY_FLAT,self.SS_FLAT=[float(d) for d in data[2][:3]]
             if len(data) > 3 and len(data[3]) > 0:

@@ -112,7 +112,7 @@ def SingleChannelOptimize(bscat:float, \
     print(f" ⚛ EREL = {e_start:.4f} +- {v_start:.4f}")
 #-----------------------------------------------------------------------
     scatter.CALC.NUM_OPT_EVALUATIONS="5"
-    scatter.CALC.NUM_OPT_WALKS="5"
+    scatter.CALC.NUM_OPT_TRYS="5"
 #-----------------------------------------------------------------------
     log=f"{work_dir}logs/{label}.wse.{bscat:.4f}"
     print(f"BEGIN WSE SCAN: {log}.optimize")
@@ -124,7 +124,7 @@ def SingleChannelOptimize(bscat:float, \
     print(f"WSE OPTIMIZATION LOWERED ENERGY BY: {wse_erel-e_start:.4f} MeV")
 #-----------------------------------------------------------------------
     scatter.CALC.NUM_OPT_EVALUATIONS=num_samples
-    scatter.CALC.NUM_OPT_WALKS="1"
+    scatter.CALC.NUM_OPT_TRYS="1"
 #-----------------------------------------------------------------------
     log=f"{work_dir}logs/{label}.corr.{bscat:.4f}"
     print(f"BEGIN CORRELATION OPTIMIZATION: {log}.optimize")

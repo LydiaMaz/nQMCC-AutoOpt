@@ -14,8 +14,7 @@ class wavefunction_input_t:
                 self.DECK_FILE   = list_wf_input[1][0]
                 self.RW_SPIN,  self.SPIN_FILE, self.ISOSPIN_FILE = list_wf_input[2][:3]
                 self.RW_YLM_PHI,self.YLM_FILE, self.PHI_FILE     = list_wf_input[3][:3]
-                self.RW_CONFIG, self.CONFIG_FILE                  = list_wf_input[4][:2]
-                self.IDX=5
+                self.IDX=4
 #-----------------------------------------------------------------------
             case "product":
 #-----------------------------------------------------------------------
@@ -25,8 +24,7 @@ class wavefunction_input_t:
                 self.DECK_FILE          = list_wf_input[3][0]
                 self.RW_SPIN,  self.SPIN_FILE, self.ISOSPIN_FILE = list_wf_input[4][:3]
                 self.RW_YLM_PHI,self.YLM_FILE, self.PHI_FILE     = list_wf_input[5][:3]
-                self.RW_CONFIG, self.CONFIG_FILE                  = list_wf_input[6][:2]
-                self.IDX=7
+                self.IDX=6
 #-----------------------------------------------------------------------
             case _:
 #-----------------------------------------------------------------------
@@ -41,7 +39,6 @@ class wavefunction_input_t:
                 file.write(self.DECK_FILE+"\n")
                 file.write(" ".join([self.RW_SPIN,self.SPIN_FILE,self.ISOSPIN_FILE])+"\n")
                 file.write(" ".join([self.RW_YLM_PHI,self.YLM_FILE,self.PHI_FILE])+"\n")
-                file.write(" ".join([self.RW_CONFIG,self.CONFIG_FILE])+"\n")
 #-----------------------------------------------------------------------
             case "product":
 #-----------------------------------------------------------------------
@@ -51,7 +48,6 @@ class wavefunction_input_t:
                 file.write(self.DECK_FILE+"\n")
                 file.write(" ".join([self.RW_SPIN,self.SPIN_FILE,self.ISOSPIN_FILE])+"\n")
                 file.write(" ".join([self.RW_YLM_PHI,self.YLM_FILE,self.PHI_FILE])+"\n")
-                file.write(" ".join([self.RW_CONFIG,self.CONFIG_FILE])+"\n")
 #-----------------------------------------------------------------------
             case _:
 #-----------------------------------------------------------------------
@@ -65,7 +61,6 @@ class wavefunction_input_t:
         self.ISOSPIN_FILE =JoinPath(prefix,self.ISOSPIN_FILE)
         self.YLM_FILE     =JoinPath(prefix,self.YLM_FILE)
         self.PHI_FILE     =JoinPath(prefix,self.PHI_FILE)
-        self.CONFIG_FILE  =JoinPath(prefix,self.CONFIG_FILE)
 #-----------------------------------------------------------------------
         if wf_type.strip("\'") == "product":
             self.PRODUCT_PARAM_FILE=JoinPath(prefix,self.PRODUCT_PARAM_FILE)
@@ -105,9 +100,10 @@ class control_t:
             self.KET_TYPE  = self.BRA_TYPE
             self.INPUT_KET = self.INPUT_BRA
 #----------------------------------------------------------------------
-        self.RW_WALK,  self.WALK_FILE                           = data[data_index][:2]
+        self.NUM_WALKERS_PER_NODE, self.FAULT_TOLERANCE, self.FT_MIN_TIMEOUT, \
+        self.FT_INIT_TIMEOUT, self.FT_DEAD_FACTOR, self.FT_ISOLATE_SUPERVISOR = data[data_index][:6]
         self.RNG_SEED                                           = data[data_index+1][0]
-        self.NUM_BLOCKS,self.BLOCK_SIZE,self.WALKERS_PER_NODE = data[data_index+2][:3]
+        self.NUM_BLOCKS, self.BLOCK_SIZE                        = data[data_index+2][:2]
         self.BURN_IN_COUNT, self.NUM_MOVES_BETWEEN              = data[data_index+3][:2]
         self.PARTICLE_MAX_DX                                    = data[data_index+4][0]
         self.SAMPLE_L2, self.RSAM, self.PSAM                    = data[data_index+5][:3]
@@ -133,9 +129,10 @@ class control_t:
             file.write(self.KET_TYPE+"\n")
             self.INPUT_KET.Write(self.KET_TYPE,file)
 #----------------------------------------------------------------------
-        file.write(" ".join([self.RW_WALK,self.WALK_FILE])+"\n")
+        file.write(" ".join([str(self.NUM_WALKERS_PER_NODE),self.FAULT_TOLERANCE,self.FT_MIN_TIMEOUT \
+                            ,self.FT_INIT_TIMEOUT,self.FT_DEAD_FACTOR,self.FT_ISOLATE_SUPERVISOR])+"\n")
         file.write(self.RNG_SEED+"\n")
-        file.write(" ".join([self.NUM_BLOCKS,self.BLOCK_SIZE,self.WALKERS_PER_NODE])+"\n")
+        file.write(" ".join([str(self.NUM_BLOCKS),str(self.BLOCK_SIZE)])+"\n")
         file.write(" ".join([self.BURN_IN_COUNT,self.NUM_MOVES_BETWEEN])+"\n")
         file.write(self.PARTICLE_MAX_DX+"\n")
         file.write(" ".join([self.SAMPLE_L2,self.RSAM,self.PSAM])+"\n")
@@ -147,13 +144,12 @@ class control_t:
         file.close()
 #----------------------------------------------------------------------
     def AddPrefix(self,prefix):
-        self.WALK_FILE=JoinPath(prefix,self.WALK_FILE)
         self.INPUT_BRA.AddPrefix(self.BRA_TYPE,prefix)
         if self.BRA_EQ_KET != ".true.":
             self.INPUT_KET.AddPrefix(self.KET_TYPE,prefix)
 #-----------------------------------------------------------------------
 # CALC_FILE_TYPE integer codes (matches Fortran SELECT CASE)
-# 0=none  1=optimize  2=gfmc  3=phi  4=spec  5=anc  6=momd  7=emff
+# 0=none  1=optimize  2=gfmc  3=phi  4=spec  5=anc  6=momd  7=emff  8=curr  9=ewk
 #-----------------------------------------------------------------------
 class calc_t:
 #-----------------------------------------------------------------------
@@ -171,10 +167,12 @@ class calc_t:
 #-----------------------------------------------------------------------
             case 1: # optimize
 #-----------------------------------------------------------------------
-                self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS        = data[0][:3]
-                self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT = data[1][:3]
-                self.OPTIMIZATION_INPUT_FILE                                           = data[2][0]
-                self.OPTIMIZED_DECK_FILE                                               = data[3][0]
+                self.NLOPT_METHOD                                                  = data[0][0]
+                self.NUM_OPT_TRYS,self.NUM_OPT_EVALUATIONS,self.OPT_TRY_FACTOR     = data[1][:3]
+                self.CFE,self.CFV,self.CFR                                         = data[2][:3]
+                self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT                 = data[3][:2]
+                self.OPTIMIZATION_INPUT_FILE                                       = data[4][0]
+                self.OPTIMIZED_DECK_FILE                                           = data[5][0]
 #-----------------------------------------------------------------------
             case _:
 #-----------------------------------------------------------------------
@@ -187,8 +185,10 @@ class calc_t:
 #-----------------------------------------------------------------------
             case 1: # optimize
 #-----------------------------------------------------------------------
-                file.write(" ".join([self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS])+"\n")
-                file.write(" ".join([self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT])+"\n")
+                file.write(str(self.NLOPT_METHOD)+"\n")
+                file.write(" ".join([str(self.NUM_OPT_TRYS),str(self.NUM_OPT_EVALUATIONS),str(self.OPT_TRY_FACTOR)])+"\n")
+                file.write(" ".join([str(self.CFE),str(self.CFV),str(self.CFR)])+"\n")
+                file.write(" ".join([str(self.NEUTRON_RADIUS_LIMIT),str(self.PROTON_RADIUS_LIMIT)])+"\n")
                 file.write(self.OPTIMIZATION_INPUT_FILE+"\n")
                 file.write(self.OPTIMIZED_DECK_FILE)
 #-----------------------------------------------------------------------

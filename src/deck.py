@@ -134,6 +134,12 @@ class deck_t:
         self.SSH_LFSP,self.SSH_E_OR_V,self.SSH_LSCAT,self.SSH_LMU1,self.SSH_LMU2,self.SSH_LQNUM,self.SSH_LNODES=data[14][:7]
         self.SSH_WSE,self.SSH_WSV,self.SSH_WSR,self.SSH_WSA,self.SSH_WBRHO,self.SSH_WBALPH=data[15][:6]
         self.DELTA,self.EPSILON,self.THETA,self.UPSILON,self.RSCAL,self.USCAL=data[16][:6]
+        # D2/F2 correlation strengths trail the 3b line only in decks that use them
+        try:
+            float(data[16][6]); float(data[16][7])
+            self.D2COR,self.F2COR=data[16][6:8]
+        except (IndexError, ValueError):
+            pass
         self.QPS1,self.QPS2=data[17][:2]
         self.QSSS1,self.QSSS2=data[18][:2]
 # ----------------------------------------------------------------------
@@ -187,7 +193,9 @@ class deck_t:
         file.write(" ".join([self.UUR,self.UUA,self.UUW])+"\n")
         file.write(" ".join([self.SSH_LFSP,self.SSH_E_OR_V,self.SSH_LSCAT,self.SSH_LMU1,self.SSH_LMU2,self.SSH_LQNUM,self.SSH_LNODES])+"\n")
         file.write(" ".join([self.SSH_WSE,self.SSH_WSV,self.SSH_WSR,self.SSH_WSA,self.SSH_WBRHO,self.SSH_WBALPH])+"\n")
-        file.write(" ".join([self.DELTA,self.EPSILON,self.THETA,self.UPSILON,self.RSCAL,self.USCAL])+"\n")
+        three_body=[self.DELTA,self.EPSILON,self.THETA,self.UPSILON,self.RSCAL,self.USCAL]
+        if hasattr(self,"D2COR"): three_body+=[self.D2COR,self.F2COR]
+        file.write(" ".join(three_body)+"\n")
         file.write(" ".join([self.QPS1,self.QPS2])+"\n")
         file.write(" ".join([self.QSSS1,self.QSSS2])+"\n")
 # ----------------------------------------------------------------------

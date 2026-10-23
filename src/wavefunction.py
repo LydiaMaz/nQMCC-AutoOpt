@@ -24,8 +24,8 @@ class wavefunction_t:
         self.CALC=calc_t(calc_type,calc_file)
 #-----------------------------------------------------------------------
     def Evaluate(self,write_log,log_name):
-        # energy binary ignores CALC fields — safe to pass CALC_TYPE=1
-        log = nQMCC("vmce", self.CTRL, self.CALC, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
+        # vmc binary ignores CALC fields — safe to pass CALC_TYPE=1
+        log = nQMCC("vmc", self.CTRL, self.CALC, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
         rx=r'H\s*=\s*(-?\d+\.\d+)\s*\((\d+\.\d+)\)'
         try:
             energy_str,var_str = findall(rx, log)[-1]
@@ -41,7 +41,7 @@ class wavefunction_t:
         log = nQMCC("optimize", self.CTRL, self.CALC, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
         self.DK=deck_t(self.PARAMS,self.CALC.OPTIMIZED_DECK_FILE)
         self.CTRL.INPUT_BRA.DECK_FILE=self.CALC.OPTIMIZED_DECK_FILE
-        rx=r' OPTIMIZED ENERGY: (-?\d+\.\d+) \((\d+\.\d+)\)'
+        rx=r'\s+OPTIMIZED ENERGY:\s+(-?\d+\.\d+)\s+\((\d+\.\d+)\)'
         try:
             opt_e_str,opt_v_str = findall(rx, log)[-1]
             return float(opt_e_str),float(opt_v_str)
