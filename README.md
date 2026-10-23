@@ -40,23 +40,18 @@ Requires Python ≥ 3.12 (nested-quote f-strings) and numpy. The ctrl, calc and 
 - `TWO_BODY_POT_FILES`: list of 2 body files assumed in nQMCC/pots/
 - `THREE_BODY_POT_FILES`: list of 3 body files assumed in nQMCC/pots/
 - `NUM_BLOCKS BLOCK_SIZE WALKERS_PER_NODE`: Monte Carlo Sample information and topology (0 walkers per node unless Abe says otherwise)
-- `OPT_SCALE NUM_OPT_EVALUATIONS`: Fraction of Current Value in Decks to set bounds and number of total samples in a single COBYLA optimization
+- `NUM_OPT_EVALUATIONS`: number of evaluations in a single COBYLA optimization (every phase)
 - `CALC_TYPE CALC_FILE`: nQMCC calc type (1 = optimize) and template file in `nQMCC/ctrl/calc/` (e.g. `1 opt.calc`); AutoOpt writes a per-run copy with its own overrides
+- `PLAN`: plan file saying which correlations to optimize and their step sizes (see **Plan file**); relative paths are resolved from the AutoOpt directory, e.g. `plans/s_shell.toml`
 > ⚠️ `IF SYSTEM_TYPE == bound`:
 - `CFE CFV CFR NR_LIMIT PR_LIMIT`: optimizer cost = CFE·E + CFV·variance + CFR·(radius penalty above the neutron/proton radius limits); `CFR 0.0` turns the radius limits off
-- `ESEP_START ESEP_STOP ESEP_NUM`: ESEP scale range and number of grid points
-- `ETA_FLAT`: flat step size for ETA parameters
-- `THREE_BODY_FLAT`: flat step size for 3b correlations (delta, epsilon, theta, upsilon, rscal, uscal)
-- `SS_FLAT`: flat step size for spatial symmetry (SS) block parameters
 - `ALPHA_DIR` *(optional)*: path to directory containing pre-optimized He-4 alpha-core decks; enables alpha-core seeding for improved convergence. If not found the run continues with the ctrl-file default deck.
 
-Optimization runs four phases per ESEP scale, each building on the previous:
-1. **Phase 0** — main correlations only (ESEP + global corr) at 50% scale
-2. **Phase 1** — first SS block only at 100% scale
-3. **Phase 2** — remaining SS blocks + main at 50% scale *(skipped if only one SS block)*
-4. **Phase 3** — full optimization (main + all SS) at 100% scale
+Optimization runs in two stages, using the phases from the plan:
+1. For each ESEP factor in the plan's scan, the starting deck's ESEP is multiplied by the factor and the first phase runs.
+2. The remaining phases run once, from the factor whose first phase gave the lowest energy below the starting energy (from the original deck if none did).
 
-The best result across all ESEP scales is kept as the final deck. If no scale improves the energy, the original deck is preserved.
+A phase is kept only if it lowers the energy; phases whose SS blocks select nothing (s-shell decks) are skipped. The lowest-energy deck is the final deck; if nothing improves the energy, the original deck is preserved. Output decks are tagged by ESEP factor, e.g. `{pair}_opt_esep1.10_p0_main.dk`.
 
 Outputs include optimized nQMCC decks (`.dk`), per-pair results in `{pair}_results.json`, a combined summary in `combined_results.json`, and a full run log in `optimization_log.out`; all saved to the working directory.
 
@@ -69,4 +64,40 @@ Outputs include optimized nQMCC decks (`.dk`), per-pair results in `{pair}_resul
 - `INITIAL_BSCAT INITIAL_DELTA_BSCAT MAX_BSCAT_SLOPE`: first bscat +- delta, used to calculate db/de
 - `MAX_NUMBER_OF_DECKS_GENERATED`: scan will terminate if number of evals is greater or equal to
 
+At each BSCAT point the channel's WSE is scanned first (fixed: 5 evaluations x 5 tries, step 0.5), then the plan's `corr` group is optimized without and with WSE.
+
 Outputs include optimized nQMCC decks (`.dk`), logs of nQMCC calculations, and a summary of results with `BSCAT`, `EREL`, `VREL`, `WSE`, and others; saved in json format to the working directory.
+
+## Plan file
+
+A plan is a TOML file with the correlations to optimize. Each step is
+`step = max(rel * |value|, abs)`: `rel` is a fraction of the parameter's current value, `abs` a fixed amount (needed for parameters that start at 0).
+
+```toml
+[scan]                          # bound only, optional (default: one run at factor 1.0)
+ESEP_factor = [0.9, 1.0, 1.1]   # multiplies the starting deck's ESEP
+
+[groups.main]                   # named groups of deck keys and their steps
+ESEP = { rel = 0.5 }
+ETA  = { abs = 0.0065 }
+"Q*" = { rel = 0.25 }           # wildcards match every such key the deck has
+
+[groups.ss]
+"SP?" = { abs = 0.2 }
+
+[[phase]]                       # bound: phases run in this order
+name   = "p0_main"
+params = ["main"]
+
+[[phase]]
+name   = "p1_ss0"
+params = ["ss"]
+blocks = "first"                # SS blocks: first | rest | all (needed when a phase has SS keys)
+```
+
+Shipped plans:
+- `plans/s_shell.toml` — s-shell nuclei (H3, He3, He4): one main + three-body phase
+- `plans/p_shell.toml` — p-shell nuclei: main, then the first SS block, then main + three-body + all SS blocks
+- `plans/sc_scattering.toml` — the `corr` group used at each BSCAT point
+
+D2/F2 three-body correlations (`D2COR`, `F2COR`) start at 0 and only act when the `.3bp` file switches D2/F2 on; add them in their own group (with an `abs` step) to plans used with D2/F2 potentials.
