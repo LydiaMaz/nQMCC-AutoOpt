@@ -23,7 +23,6 @@ import os
 import sys
 import json
 import shutil
-from datetime import datetime
 from pathlib import Path
 import numpy as np
 from contextlib import redirect_stdout
@@ -64,15 +63,6 @@ def create_pair_name(pot2b, pot3b):
 
 def scale_tag(scale):
     return f"s{int(round(scale * 100)):03d}"
-
-def get_ss_list(dk):
-    ss = getattr(dk, "SS", None)
-    if ss is None:
-        return []
-    try:
-        return list(ss)
-    except Exception:
-        return []
 
 def load_dk_unquoted(target, path):
     p = strip_quotes(path)
@@ -154,9 +144,6 @@ def try_optimize(target, opt_file, dk_out, log_prefix, instructions, e_ref, requ
     Returns ok=False if the energy is non-finite, the output deck is missing,
     or (when require_improvement=True) the energy did not decrease.
     """
-    opt_file   = strip_quotes(opt_file)
-    dk_out     = strip_quotes(dk_out)
-    log_prefix = strip_quotes(log_prefix)
     ensure_dir(os.path.dirname(opt_file))
     ensure_dir(os.path.dirname(dk_out))
     ensure_dir(os.path.dirname(log_prefix))
@@ -165,7 +152,6 @@ def try_optimize(target, opt_file, dk_out, log_prefix, instructions, e_ref, requ
     opt.UpdateFloats(target.PARAMS, 6)
 
     log_txt = f"{log_prefix}.txt"
-    ensure_dir(os.path.dirname(log_txt))
     buf = StringIO()
     try:
         with redirect_stdout(buf):
@@ -285,8 +271,7 @@ def build_instructions_ss(ss_indices, flat_scale):
 # ---------------------------------------------------------------------------
 
 def run_phase(target, phase_name, instructions, scale, tag,
-              pot_dir, pair_name, attempts, e_ref, e0):
-    
+              pot_dir, pair_name, attempts, e_ref):
     opt_file = f"{pot_dir}opt/{pair_name}_opt_{tag}_{phase_name}.opt"
     dk_out   = f"{pot_dir}dk/{pair_name}_opt_{tag}_{phase_name}.dk"
     log_pref = f"{pot_dir}logs/{pair_name}.opt_{tag}_{phase_name}"
@@ -303,7 +288,7 @@ def run_phase(target, phase_name, instructions, scale, tag,
     })
 
     if ok:
-        print(f"  ✅ {phase_name}: E={e:.6f}  ΔE={(e - e0):.6f}")
+        print(f"  ✅ {phase_name}: E={e:.6f}  ΔE={(e - e_ref):.6f}")
     else:
         print(f"  ⚠️  {phase_name} failed: {msg}")
 
@@ -363,7 +348,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
     three_body_flat = float(util.THREE_BODY_FLAT)
     ss_flat         = float(util.SS_FLAT)
 
-    n_ss = len(get_ss_list(target0.DK))
+    n_ss = len(target0.DK.SS)
     if n_ss > 0:
         print(f"Spatial symmetries detected: {n_ss} SS blocks")
     else:
@@ -413,7 +398,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
         opt_scale_p0    = opt_scale_base  * PHASE_SCALES["p0_main"]
         three_body_p0   = three_body_flat * PHASE_SCALES["p0_main"]
         inst_p0 = build_instructions_base(scale, opt_scale_p0, three_body_p0, eta_flat, target.DK)
-        ok0, e, v, dk, opt = run_phase(target, "p0_main", inst_p0, scale, tag, pot_dir, pair_name, attempts, best_e_scale, e0)
+        ok0, e, v, dk, opt = run_phase(target, "p0_main", inst_p0, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
         update_best(ok0, e, v, dk, opt)
 
         if n_ss <= 0:
@@ -423,7 +408,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
         # --- Phase 1: first SS block only ---
         ss_flat_p1 = ss_flat * PHASE_SCALES["p1_ss0"]
         inst_ss0   = build_instructions_ss([0], flat_scale=ss_flat_p1)
-        ok1, e, v, dk, opt = run_phase(target, "p1_ss0", inst_ss0, scale, tag, pot_dir, pair_name, attempts, best_e_scale, e0)
+        ok1, e, v, dk, opt = run_phase(target, "p1_ss0", inst_ss0, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
         update_best(ok1, e, v, dk, opt)
 
         # --- Phase 2: remaining SS blocks + main (if >1 SS block) ---
@@ -435,7 +420,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
             ss_flat_p2    = ss_flat         * PHASE_SCALES["p2_ss_rest"]
             inst_base_p2  = build_instructions_base(esep_scale_p2, opt_scale_p2, three_body_p2, eta_flat, target.DK)
             inst_ss_rest  = build_instructions_ss(rest, flat_scale=ss_flat_p2)
-            ok2, e, v, dk, opt = run_phase(target, "p2_ss_rest", inst_base_p2 + inst_ss_rest, scale, tag, pot_dir, pair_name, attempts, best_e_scale, e0)
+            ok2, e, v, dk, opt = run_phase(target, "p2_ss_rest", inst_base_p2 + inst_ss_rest, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
             update_best(ok2, e, v, dk, opt)
 
         # --- Phase 3: full optimization (main + all SS) ---
@@ -444,7 +429,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
         ss_flat_p3    = ss_flat         * PHASE_SCALES["p3_full"]
         inst_base_p3  = build_instructions_base(scale, opt_scale_p3, three_body_p3, eta_flat, target.DK)
         inst_ss_all   = build_instructions_ss(list(range(n_ss)), flat_scale=ss_flat_p3)
-        ok3, e, v, dk, opt = run_phase(target, "p3_full", inst_base_p3 + inst_ss_all, scale, tag, pot_dir, pair_name, attempts, best_e_scale, e0)
+        ok3, e, v, dk, opt = run_phase(target, "p3_full", inst_base_p3 + inst_ss_all, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
         update_best(ok3, e, v, dk, opt)
 
     # --- Finalize: copy the best result to the canonical output paths ---
