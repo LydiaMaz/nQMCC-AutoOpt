@@ -9,6 +9,7 @@ import json
 from utility import utility_t
 from deck import deck_t,GenerateOptFile
 from wavefunction import wavefunction_t
+from plan import plan_t
 #-----------------------------------------------------------------------
 """
 ---
@@ -47,7 +48,7 @@ def SingleChannelOptimize(bscat:float, \
                           label:str, \
                           scatter:wavefunction_t,\
                           ssi:int,\
-                          opt_scale:float,\
+                          plan:plan_t,\
                           ecore:float,\
                           vcore:float):
 #-----------------------------------------------------------------------
@@ -56,9 +57,7 @@ def SingleChannelOptimize(bscat:float, \
     opt_wse_file_name=f"\'{work_dir}opt/wse.opt\'"
     wse_i=[{"ss_idx":ssi,"key":"WSE","rel":0.0,"abs":0.5}]
 #-----------------------------------------------------------------------
-    instructions=[{"key":k,"rel":opt_scale,"abs":0.0} for k in ["QSSP1","QSSP2"]]\
-                +[{"ss_idx":ssi,"key":k,"rel":opt_scale,"abs":0.0}\
-                  for k in ["SPU","SPV","SPA","SPB","SPC","SPK","SPL","WSR","WSA"]]
+    instructions=plan.Instructions(["corr"],scatter.DK,[ssi])
 #-----------------------------------------------------------------------
     instructions_all=instructions+wse_i
 #-----------------------------------------------------------------------
@@ -186,7 +185,7 @@ def DirectionalScan(direction,\
         print(f"db: {db:.4f} :: de: {de:.4f} :: db/de :: {direction*db_de:.4f}")
         print(BREAK)
         bscat=bscat_prev+db*direction
-        dscan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.OPT_SCALE,ecore,vcore))
+        dscan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.PLAN,ecore,vcore))
 #-----------------------------------------------------------------------
         de=dscan[idx]["EREL"]-erel_prev
 #-----------------------------------------------------------------------
@@ -216,7 +215,7 @@ def DirectionalScan(direction,\
         scatter.DK.Write(scatter.PARAMS,scatter.DK.FILE_NAME)
         for bscat in [10.,5.,2.5,1.25,0.625]:
             dscan.append(SingleChannelOptimize(bscat*(-1)*direction\
-                ,util.WORKING_DIR,label,scatter,ssi,util.OPT_SCALE,ecore,vcore))
+                ,util.WORKING_DIR,label,scatter,ssi,util.PLAN,ecore,vcore))
 #-----------------------------------------------------------------------
     return dscan
 #-----------------------------------------------------------------------
@@ -232,12 +231,12 @@ def SingleChannelScan(util:utility_t,\
 # INITIAL BSCATS
 #-----------------------------------------------------------------------
     bscat=util.INITIAL_BSCAT
-    scan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.OPT_SCALE,ecore,vcore))
+    scan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.PLAN,ecore,vcore))
     bscat=util.INITIAL_BSCAT+util.INITIAL_DELTA_BSCAT
-    scan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.OPT_SCALE,ecore,vcore))
+    scan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.PLAN,ecore,vcore))
     bscat=util.INITIAL_BSCAT-util.INITIAL_DELTA_BSCAT
     scatter.DK.FILE_NAME=scan[0]["DECK_PATH"]
-    scan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.OPT_SCALE,ecore,vcore))
+    scan.append(SingleChannelOptimize(bscat,util.WORKING_DIR,label,scatter,ssi,util.PLAN,ecore,vcore))
 #-----------------------------------------------------------------------
     db_de_i=(2.*util.INITIAL_DELTA_BSCAT)/abs(scan[2]["EREL"]-scan[1]["EREL"])
 #-----------------------------------------------------------------------

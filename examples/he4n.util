@@ -10,8 +10,9 @@ fbn95.const                                       constant_file
 av18.2bp                                          2b_potential_files
 none.3bp                                          3b_potential_files
 4 5000  0                                       num_blocks block_size walkers_per_node
-0.2 50                                            opt_scale   num_opt_samples
+50                                                                                num_opt_evaluations
 1  opt.calc                                                                       calc_type  calc_file
+plans/sc_scattering.toml                                                          plan
 1                                                 num_channels
 /Users/lydiamazeeva/QMC/three_body/nQMCC/ctrl/examples/unnatural/he4n.ctrl  scattering_ctrl
 0                                                 ss_idx

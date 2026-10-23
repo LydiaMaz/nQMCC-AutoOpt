@@ -10,6 +10,7 @@ import os
 import re
 #-----------------------------------------------------------------------
 from control import control_t, calc_t
+from plan import plan_t, PlanPath
 #-----------------------------------------------------------------------
 class utility_t:
 #-----------------------------------------------------------------------
@@ -20,7 +21,7 @@ class utility_t:
         print("UTILITY INPUTS")
         print("="*72)
         for key,val in self.__dict__.items():
-            if key != "CALC":
+            if key not in ["CALC", "PLAN"]:
                 print(f"{key} :: {val}")
 #-----------------------------------------------------------------------
     def Read(self, filename):
@@ -39,12 +40,14 @@ class utility_t:
         self.TWO_BODY_FILES=data[9][:self.NUM_POTS]
         self.THREE_BODY_FILES=data[10][:self.NUM_POTS]
         self.NUM_BLOCKS,self.BLOCK_SIZE,self.WALKERS_PER_NODE=data[11][:3]
-        self.OPT_SCALE,self.NUM_OPT_EVALUATIONS=[float(data[12][0]),int(data[12][1])]
+        self.NUM_OPT_EVALUATIONS=int(data[12][0])
         self.CALC_TYPE,self.CALC_FILE=data[13][:2]
         self.CALC=calc_t(self.CALC_TYPE,f"{self.NQMCC_DIR}ctrl/calc/{self.CALC_FILE}")
+        self.PLAN_FILE=PlanPath(data[14][0])
+        self.PLAN=plan_t(self.PLAN_FILE)
 #-----------------------------------------------------------------------
         if self.SYSTEM_TYPE.lower() == "sc_scattering":
-            data=data[14:]
+            data=data[15:]
             self.NUM_CHANNELS=int(data[0][0])
             self.SCATTERING_CTRL_FILES=data[1][:self.NUM_CHANNELS]
             self.SS_INDEXS=[int(d) for d in data[2][:self.NUM_CHANNELS]]
@@ -54,12 +57,10 @@ class utility_t:
             self.MAX_SCAN_COUNT=int(data[6][0])
 #-----------------------------------------------------------------------
         if self.SYSTEM_TYPE.lower() == "bound":
-            data=data[14:]
+            data=data[15:]
             self.CFE,self.CFV,self.CFR,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT=data[0][:5]
-            self.ESEP_START,self.ESEP_STOP,self.ESEP_NUM=float(data[1][0]),float(data[1][1]),int(data[1][2])
-            self.ETA_FLAT,self.THREE_BODY_FLAT,self.SS_FLAT=[float(d) for d in data[2][:3]]
-            if len(data) > 3 and len(data[3]) > 0:
-                self.ALPHA_DIR = data[3][0]
+            if len(data) > 1 and len(data[1]) > 0:
+                self.ALPHA_DIR = data[1][0]
             else:
                 self.ALPHA_DIR = None
 #-----------------------------------------------------------------------

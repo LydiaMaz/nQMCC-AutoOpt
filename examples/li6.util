@@ -10,9 +10,8 @@ fbn95.const                                                                     
 av18.2bp                                                                          2b_potential_files
 none.3bp                                                                          3b_potential_files
 1 100  0                                                                         num_blocks block_size walkers_per_node
-0.5 10                                                                            opt_scale   num_opt_evaluations
+10                                                                                num_opt_evaluations
 1  opt.calc                                                                       calc_type  calc_file
+plans/p_shell.toml                                                                plan
 1.0  2.0  1.0  2.5  2.5                                                           cfe cfv cfr nr_limit pr_limit
-0.5 0.6 1                                                                         esep_start esep_stop esep_num
-0.0065 0.3 0.2                                                                    eta_flat 3bp_flat ss_flat
 /Users/lydiamazeeva/QMC/nQMCC/BoundStates/refactor/test/he4-2026-04-15_21-33      alpha_dir

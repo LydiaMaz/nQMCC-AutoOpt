@@ -52,6 +52,7 @@ class plan_t:
         self.FILE_NAME = file_name
         with open(file_name, "rb") as f:
             data = tomllib.load(f)
+        self.DATA = data
         unknown = set(data) - {"scan", "groups", "phase"}
         if unknown:
             raise ValueError(f"{file_name}: unknown sections {sorted(unknown)}")

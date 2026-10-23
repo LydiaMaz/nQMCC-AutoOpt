@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """
-Bound-state optimizer with ESEP scan + fixed phased optimization.
+Bound-state optimizer driven by a plan file (see plan.py).
 
-For each ESEP scale in the scan, four phases run in sequence, each
-building on the result of the previous:
+For each ESEP factor in the plan's scan, the starting deck's ESEP is
+multiplied by the factor and the plan's phases run in order, each
+building on the best deck so far. A phase is accepted only if it lowers
+the energy; phases whose SS blocks select nothing (e.g. s-shell decks)
+are skipped.
 
-  Phase 0 (p0_main):    main correlations only (ESEP + global corr),
-                         at 50% of the base opt/flat scales.
-  Phase 1 (p1_ss0):     first SS block only, at 100% scale.
-  Phase 2 (p2_ss_rest): remaining SS blocks + main, both at 50% scale.
-                         Skipped when there is only one SS block.
-  Phase 3 (p3_full):    full optimization (main + all SS), at 100% scale.
-
-The best result across all ESEP scales is kept as the final deck.
-If no scale improves the energy the original deck is preserved.
+The best result across all ESEP factors is kept as the final deck.
+If nothing improves the energy the original deck is preserved.
 
 If ALPHA_DIR is set in the utility file, the run starts from a deck
 seeded with optimized He-4 alpha-core parameters. Otherwise it uses
@@ -30,7 +26,7 @@ from io import StringIO
 
 sys.path.append(os.path.dirname(__file__))
 
-from deck import deck_t, GenerateOptFile, MAIN_KEYS
+from deck import deck_t, GenerateOptFile
 from wavefunction import wavefunction_t, InitNShellBoundWF
 from parameters import parameters_t
 
@@ -61,8 +57,17 @@ def ensure_dir(p):
 def create_pair_name(pot2b, pot3b):
     return f"{pot2b.split('.')[0]}.{pot3b.split('.')[0]}"
 
-def scale_tag(scale):
-    return f"s{int(round(scale * 100)):03d}"
+def esep_tag(factor):
+    return f"esep{factor:.2f}"
+
+def write_esep_scaled_deck(target, src, factor, out):
+    """Copy deck src to out with ESEP multiplied by factor (factor 1.0 returns src)."""
+    if factor == 1.0:
+        return src
+    load_dk_unquoted(target, src)
+    target.DK.ESEP = [f"{float(v)*factor:.5f}" for v in target.DK.ESEP]
+    target.DK.Write(target.PARAMS, quote_path(out))
+    return out
 
 def load_dk_unquoted(target, path):
     p = strip_quotes(path)
@@ -182,48 +187,10 @@ def try_optimize(target, opt_file, dk_out, log_prefix, instructions, e_ref, requ
 
 
 # ---------------------------------------------------------------------------
-# Instruction builders
-# ---------------------------------------------------------------------------
-
-# Fractional scales applied to opt_scale/flat_scale per phase.
-# Phases 0 and 2 use 50% to keep the optimization conservative when first
-# introducing ESEP or the remaining SS blocks. Phases 1 and 3 use 100%.
-PHASE_SCALES = {
-    "p0_main"    : 0.50,
-    "p1_ss0"     : 1.00,
-    "p2_ss_rest" : 0.50,
-    "p3_full"    : 1.00,
-}
-
-def build_instructions_base(esep_scale, opt_scale, opt_3b, eta_flat=0.0, target_dk=None):
-
-    inst = [{"key": "ESEP", "rel": esep_scale, "abs": 0.0},
-            {"key": "ETA",  "rel": 0.0,        "abs": float(eta_flat)}]
-    inst += [{"key": k, "rel": opt_scale, "abs": 0.0}
-             for k in ["ZETA", "FSCAL", "ALPHA", "BETA", "AC", "AA", "AR"]]
-    inst += [{"key": k, "rel": 0.0, "abs": opt_3b}
-             for k in ["DELTA", "EPSILON", "THETA", "UPSILON", "RSCAL", "USCAL"]]
-    inst += [{"key": k, "rel": opt_scale, "abs": 0.0}
-             for k in MAIN_KEYS if k.startswith("Q") and (target_dk is None or hasattr(target_dk, k))]
-    return inst
-
-SS_OPT_KEYS = ["SPU", "SPV", "SPR", "SPA", "SPB", "SPC", "SPK", "SPL",
-               "PPU", "PPV", "PPR", "PPA", "PPB", "PPC", "PPK", "PPL",
-               "WSE", "WSV", "WSR", "WSA", "WBRHO", "WBALPH"]
-
-def build_instructions_ss(ss_indices, flat_scale):
-
-    inst = []
-    for ssi in ss_indices:
-        inst += [{"ss_idx": ssi, "key": k, "rel": 0.0, "abs": flat_scale} for k in SS_OPT_KEYS]
-    return inst
-
-
-# ---------------------------------------------------------------------------
 # Phase execution helper
 # ---------------------------------------------------------------------------
 
-def run_phase(target, phase_name, instructions, scale, tag,
+def run_phase(target, phase_name, instructions, factor, tag,
               pot_dir, pair_name, attempts, e_ref):
     opt_file = f"{pot_dir}opt/{pair_name}_opt_{tag}_{phase_name}.opt"
     dk_out   = f"{pot_dir}dk/{pair_name}_opt_{tag}_{phase_name}.dk"
@@ -235,7 +202,7 @@ def run_phase(target, phase_name, instructions, scale, tag,
     )
 
     attempts.append({
-        "scale": scale, "tag": tag, "phase": phase_name, "ok": ok,
+        "esep_factor": factor, "tag": tag, "phase": phase_name, "ok": ok,
         "energy": e if ok else None, "variance": v if ok else None,
         "dk": dk_out, "opt": opt_file, "msg": msg if not ok else "",
     })
@@ -292,113 +259,72 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
     target0.DK.Write(target0.PARAMS, quote_path(dk_backup))
     print(f"Saved ORIGINAL DK: {dk_backup}")
 
-    # --- Read optimization parameters ---
-    esep_start      = float(util.ESEP_START)
-    esep_stop       = float(util.ESEP_STOP)
-    esep_num        = int(util.ESEP_NUM)
-    opt_scale_base  = float(util.OPT_SCALE)
-    eta_flat        = float(util.ETA_FLAT)
-    three_body_flat = float(util.THREE_BODY_FLAT)
-    ss_flat         = float(util.SS_FLAT)
-
+    plan = util.PLAN
     n_ss = len(target0.DK.SS)
     if n_ss > 0:
         print(f"Spatial symmetries detected: {n_ss} SS blocks")
     else:
-        print("No SS blocks: only Phase 0 will run per scale")
-
-    # Build the ESEP scale grid from start/stop/num
-    step = (esep_stop - esep_start) / max(esep_num - 1, 1)
-    scales = [round(esep_start + i * step, 10) for i in range(esep_num)]
-    print(f"ESEP scan scales: [{esep_start}, {esep_stop}] n={esep_num} -> {scales}")
+        print("No SS blocks: phases that need SS blocks are skipped")
+    print(f"PLAN: {plan.FILE_NAME}")
+    print(f"ESEP factors: {plan.ESEP_FACTORS}")
 
     attempts = []
     best = None
 
     # -----------------------------------------------------------------------
-    # ESEP scale scan — run all four phases at each scale
+    # ESEP factor scan — run the plan's phases at each factor
     # -----------------------------------------------------------------------
-    for scale in scales:
-        tag = scale_tag(scale)
-        print(f"\n{pair_name}: scale={scale} (tag={tag})")
+    for factor in plan.ESEP_FACTORS:
+        tag = esep_tag(factor)
+        print(f"\n{pair_name}: ESEP factor={factor} (tag={tag})")
 
         target = build_target(util, pot_dir, pot_index)
-        load_dk_unquoted(target, dk_backup)
+        dk_start = write_esep_scaled_deck(target, dk_backup, factor, f"{pot_dir}dk/{pair_name}_start_{tag}.dk")
+        load_dk_unquoted(target, dk_start)
 
-        # Track the best energy achieved so far within this scale.
+        # Track the best energy achieved so far at this factor.
         # Each phase uses this as its improvement threshold.
-        best_e_scale  = e0
-        best_v_scale  = v0
-        best_dk_scale = dk_backup
-        best_opt_scale = None
+        best_e_factor  = e0
+        best_v_factor  = v0
+        best_dk_factor = dk_start
+        best_opt_factor = None
 
         def update_best(ok, e, v, dk, opt):
-            """Update per-scale best state and reload target deck."""
-            nonlocal best, best_e_scale, best_v_scale, best_dk_scale, best_opt_scale
+            """Update per-factor best state and reload target deck."""
+            nonlocal best, best_e_factor, best_v_factor, best_dk_factor, best_opt_factor
             if ok:
-                best_e_scale   = float(e)
-                best_v_scale   = float(v) if is_finite(v) else float("nan")
-                best_dk_scale  = dk
-                best_opt_scale = opt
-                if best is None or best_e_scale < best["energy"]:
-                    best = {"scale": scale, "tag": tag, "energy": best_e_scale,
-                            "variance": best_v_scale, "dk": best_dk_scale,
-                            "opt": best_opt_scale}
+                best_e_factor   = float(e)
+                best_v_factor   = float(v) if is_finite(v) else float("nan")
+                best_dk_factor  = dk
+                best_opt_factor = opt
+                if best is None or best_e_factor < best["energy"]:
+                    best = {"factor": factor, "tag": tag, "energy": best_e_factor,
+                            "variance": best_v_factor, "dk": best_dk_factor,
+                            "opt": best_opt_factor}
             # Always reload — on success to advance, on failure to recover
-            load_dk_unquoted(target, best_dk_scale)
+            load_dk_unquoted(target, best_dk_factor)
 
-        # --- Phase 0: main correlations only ---
-        opt_scale_p0    = opt_scale_base  * PHASE_SCALES["p0_main"]
-        three_body_p0   = three_body_flat * PHASE_SCALES["p0_main"]
-        inst_p0 = build_instructions_base(scale, opt_scale_p0, three_body_p0, eta_flat, target.DK)
-        ok0, e, v, dk, opt = run_phase(target, "p0_main", inst_p0, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
-        update_best(ok0, e, v, dk, opt)
-
-        if n_ss <= 0:
-            # No SS blocks — nothing more to do at this scale
-            continue
-
-        # --- Phase 1: first SS block only ---
-        ss_flat_p1 = ss_flat * PHASE_SCALES["p1_ss0"]
-        inst_ss0   = build_instructions_ss([0], flat_scale=ss_flat_p1)
-        ok1, e, v, dk, opt = run_phase(target, "p1_ss0", inst_ss0, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
-        update_best(ok1, e, v, dk, opt)
-
-        # --- Phase 2: remaining SS blocks + main (if >1 SS block) ---
-        rest = list(range(1, n_ss))
-        if rest:
-            opt_scale_p2  = opt_scale_base  * PHASE_SCALES["p2_ss_rest"]
-            esep_scale_p2 = scale           * PHASE_SCALES["p2_ss_rest"]
-            three_body_p2 = three_body_flat * PHASE_SCALES["p2_ss_rest"]
-            ss_flat_p2    = ss_flat         * PHASE_SCALES["p2_ss_rest"]
-            inst_base_p2  = build_instructions_base(esep_scale_p2, opt_scale_p2, three_body_p2, eta_flat, target.DK)
-            inst_ss_rest  = build_instructions_ss(rest, flat_scale=ss_flat_p2)
-            ok2, e, v, dk, opt = run_phase(target, "p2_ss_rest", inst_base_p2 + inst_ss_rest, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
-            update_best(ok2, e, v, dk, opt)
-
-        # --- Phase 3: full optimization (main + all SS) ---
-        opt_scale_p3  = opt_scale_base  * PHASE_SCALES["p3_full"]
-        three_body_p3 = three_body_flat * PHASE_SCALES["p3_full"]
-        ss_flat_p3    = ss_flat         * PHASE_SCALES["p3_full"]
-        inst_base_p3  = build_instructions_base(scale, opt_scale_p3, three_body_p3, eta_flat, target.DK)
-        inst_ss_all   = build_instructions_ss(list(range(n_ss)), flat_scale=ss_flat_p3)
-        ok3, e, v, dk, opt = run_phase(target, "p3_full", inst_base_p3 + inst_ss_all, scale, tag, pot_dir, pair_name, attempts, best_e_scale)
-        update_best(ok3, e, v, dk, opt)
+        for phase in plan.PHASES:
+            if phase.BLOCKS is not None and not phase.SSIndices(n_ss):
+                continue
+            inst = phase.Instructions(target.DK)
+            ok, e, v, dk, opt = run_phase(target, phase.NAME, inst, factor, tag, pot_dir, pair_name, attempts, best_e_factor)
+            update_best(ok, e, v, dk, opt)
 
     # --- Finalize: copy the best result to the canonical output paths ---
     final_dk  = f"{pot_dir}dk/{pair_name}_optimized.dk"
     final_opt = f"{pot_dir}opt/{pair_name}_opt.opt"
 
     if best is None:
-        print("No successful improvements across any ESEP scale; keeping ORIGINAL deck")
+        print("No successful improvements across any ESEP factor; keeping ORIGINAL deck")
         shutil.copy2(dk_backup, final_dk)
-        best_e, best_v, best_scale = e0, v0, 0.0
+        best_e, best_v, best_factor = e0, v0, None
     else:
         shutil.copy2(best["dk"], final_dk)
         if best.get("opt") and os.path.exists(best["opt"]):
             shutil.copy2(best["opt"], final_opt)
-        best_e, best_v, best_scale = best["energy"], best["variance"], best["scale"]
-        print(f"\nBest scale={best_scale}  E={best_e:.6f}  ΔE={(best_e - e0):.6f}")
+        best_e, best_v, best_factor = best["energy"], best["variance"], best["factor"]
+        print(f"\nBest ESEP factor={best_factor}  E={best_e:.6f}  ΔE={(best_e - e0):.6f}")
 
     result = {
         "POTENTIAL_PAIR":     pair_name,
@@ -409,7 +335,8 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
         "E_OPTIMIZED":        best_e,
         "V_OPTIMIZED":        best_v,
         "DELTA_E":            best_e - e0,
-        "BEST_ESEP_SCALE":    best_scale,
+        "PLAN":               plan.FILE_NAME,
+        "BEST_ESEP_FACTOR":   best_factor,
         "FINAL_DK":           final_dk,
         "FINAL_OPT":          final_opt,
         "DK_BACKUP":          dk_backup,

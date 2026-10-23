@@ -10,8 +10,7 @@ fbn95.const                                                                     
 nv2_Ia.2bp                                                                  2b_potential_files
 nv3_Ia_star.3bp                                                                  3b_potential_files
 1 50000  0                                                                         num_blocks block_size walkers_per_node
-0.5 50                                                                            opt_scale   num_opt_evaluations
+50                                                                                num_opt_evaluations
 1  opt.calc                                                                       calc_type  calc_file
+plans/s_shell.toml                                                                plan
 1.0  2.0  0.0  1.5  1.5                                                           cfe cfv cfr nr_limit pr_limit
-0.0 1 5                                                                         esep_start esep_stop esep_num
-0.0065 0.3 0.2                                                                    eta_flat 3bp_flat ss_flat

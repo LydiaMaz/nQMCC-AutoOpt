@@ -78,12 +78,11 @@ def BoundStates(util: utility_t):
             "timestamp":datetime.now().isoformat(),
             "optimization_mode":"phased",
             "optimization_settings":{
-                "opt_scale":util.OPT_SCALE,
                 "num_opt_evaluations":util.NUM_OPT_EVALUATIONS,
-                "esep_scale":f"[{util.ESEP_START}, {util.ESEP_STOP}] n={util.ESEP_NUM}",
-                "eta_flat":util.ETA_FLAT,
-                "three_body_flat":util.THREE_BODY_FLAT,
-                "ss_flat":util.SS_FLAT,
+                "cost_factors":{"cfe":util.CFE,"cfv":util.CFV,"cfr":util.CFR,
+                                "nr_limit":util.NEUTRON_RADIUS_LIMIT,"pr_limit":util.PROTON_RADIUS_LIMIT},
+                "plan_file":util.PLAN_FILE,
+                "plan":util.PLAN.DATA,
             },
         },
         "results":processed_results,
@@ -100,12 +99,12 @@ def BoundStates(util: utility_t):
     with open(out_file,"w") as f:
         f.write("# Optimization Log (Phased)\n")
         f.write(f"# Generated:           {datetime.now().isoformat()}\n")
-        f.write(f"# OPT_SCALE:           {util.OPT_SCALE}\n")
         f.write(f"# NUM_OPT_EVALUATIONS: {util.NUM_OPT_EVALUATIONS}\n")
-        f.write(f"# ESEP_SCALE:          [{util.ESEP_START}, {util.ESEP_STOP}] n={util.ESEP_NUM}\n")
-        f.write(f"# ETA_FLAT:            {util.ETA_FLAT}\n")
-        f.write(f"# THREE_BODY_FLAT:     {util.THREE_BODY_FLAT}\n")
-        f.write(f"# SS_FLAT:             {util.SS_FLAT}\n")
+        f.write(f"# COST (E VAR RADII):  {util.CFE} {util.CFV} {util.CFR}\n")
+        f.write(f"# PLAN:                {util.PLAN_FILE}\n")
+        f.write("#" + "-"*70 + "\n")
+        for line in open(util.PLAN_FILE).read().splitlines():
+            f.write(f"# {line}\n")
         f.write("#" + "="*70 + "\n\n")
         for line in opt_output_lines:
             f.write(line+"\n")
