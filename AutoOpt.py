@@ -16,7 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 from utility import utility_t
 from wavefunction import wavefunction_t,InitPShellScattWF
 from bscat import SingleChannelScan
-from bound import BoundStateOptimizePhases
+from bound import BoundStateOptimizePhases, ESEP_STEPS
 #-----------------------------------------------------------------------
 def BoundStates(util: utility_t):
 #-----------------------------------------------------------------------
@@ -81,6 +81,7 @@ def BoundStates(util: utility_t):
                 "num_opt_evaluations":util.NUM_OPT_EVALUATIONS,
                 "cost_factors":{"cfe":util.CFE,"cfv":util.CFV,"cfr":util.CFR,
                                 "nr_limit":util.NEUTRON_RADIUS_LIMIT,"pr_limit":util.PROTON_RADIUS_LIMIT},
+                "esep_steps":ESEP_STEPS,
                 "plan_file":util.PLAN_FILE,
                 "plan":util.PLAN.DATA,
             },
@@ -101,6 +102,7 @@ def BoundStates(util: utility_t):
         f.write(f"# Generated:           {datetime.now().isoformat()}\n")
         f.write(f"# NUM_OPT_EVALUATIONS: {util.NUM_OPT_EVALUATIONS}\n")
         f.write(f"# COST (E VAR RADII):  {util.CFE} {util.CFV} {util.CFR}\n")
+        f.write(f"# ESEP STEPS (1st phase): {ESEP_STEPS}\n")
         f.write(f"# PLAN:                {util.PLAN_FILE}\n")
         f.write("#" + "-"*70 + "\n")
         for line in open(util.PLAN_FILE).read().splitlines():

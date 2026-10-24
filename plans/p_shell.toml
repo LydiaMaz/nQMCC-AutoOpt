@@ -1,11 +1,8 @@
 # p-shell nuclei (Li6 - Be8): main correlations, first SS block, then everything.
 # step = max(rel*|value|, abs)
 
-[scan]
-ESEP_factor = [0.9, 1.0, 1.1]   # multiplies the starting deck's ESEP
-
 [groups.main]
-ESEP  = { rel = 0.5 }
+ESEP  = { abs = 0.5 }          # first phase: step scanned in bound.py (ESEP_STEPS)
 ETA   = { abs = 0.0065 }
 ZETA  = { rel = 0.25 }
 FSCAL = { rel = 0.25 }
@@ -14,7 +11,7 @@ AA    = { rel = 0.25 }
 AR    = { rel = 0.25 }
 ALPHA = { rel = 0.25 }
 BETA  = { rel = 0.25 }
-"Q*"  = { rel = 0.25 }          # every Q key the deck has
+"Q*"  = { rel = 0.25 }          # all Q correlations in the deck (QPS1 ... QDDD2)
 
 [groups.threebody]
 DELTA   = { abs = 0.15 }
@@ -25,8 +22,22 @@ RSCAL   = { abs = 0.15 }
 USCAL   = { abs = 0.15 }
 
 [groups.ss]
-"SP?"  = { abs = 0.2 }          # SPU SPV SPR SPA SPB SPC SPK SPL
-"PP?"  = { abs = 0.2 }          # PPU ... PPL (decks with NPPART >= 2)
+SPU    = { abs = 0.2 }
+SPV    = { abs = 0.2 }
+SPR    = { abs = 0.2 }
+SPA    = { abs = 0.2 }
+SPB    = { abs = 0.2 }
+SPC    = { abs = 0.2 }
+SPK    = { abs = 0.2 }
+SPL    = { abs = 0.2 }
+PPU    = { abs = 0.2 }          # PP*: only in decks with 2+ p-shell nucleons
+PPV    = { abs = 0.2 }
+PPR    = { abs = 0.2 }
+PPA    = { abs = 0.2 }
+PPB    = { abs = 0.2 }
+PPC    = { abs = 0.2 }
+PPK    = { abs = 0.2 }
+PPL    = { abs = 0.2 }
 WSE    = { abs = 0.2 }
 WSV    = { abs = 0.2 }
 WSR    = { abs = 0.2 }

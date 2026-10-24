@@ -47,11 +47,7 @@ Requires Python ≥ 3.12 (nested-quote f-strings) and numpy. The ctrl, calc and 
 - `CFE CFV CFR NR_LIMIT PR_LIMIT`: optimizer cost = CFE·E + CFV·variance + CFR·(radius penalty above the neutron/proton radius limits); `CFR 0.0` turns the radius limits off
 - `ALPHA_DIR` *(optional)*: path to directory containing pre-optimized He-4 alpha-core decks; enables alpha-core seeding for improved convergence. If not found the run continues with the ctrl-file default deck.
 
-Optimization runs in two stages, using the phases from the plan:
-1. For each ESEP factor in the plan's scan, the starting deck's ESEP is multiplied by the factor and the first phase runs.
-2. The remaining phases run once, from the factor whose first phase gave the lowest energy below the starting energy (from the original deck if none did).
-
-A phase is kept only if it lowers the energy; phases whose SS blocks select nothing (s-shell decks) are skipped. The lowest-energy deck is the final deck; if nothing improves the energy, the original deck is preserved. Output decks are tagged by ESEP factor, e.g. `{pair}_opt_esep1.10_p0_main.dk`.
+The plan's phases run in order, each starting from the best deck so far; a phase is kept only if it lowers the energy. The first phase runs once per ESEP step in `ESEP_STEPS` (top of `src/bound.py`, default `[0.0, 0.25, 0.5]`): ESEP's step is that fraction of the deck's ESEP (0 = ESEP fixed), replacing the plan's ESEP step, and the lowest result is kept. Later phases use the plan's steps. Phases whose SS blocks select nothing (s-shell decks) are skipped. If nothing improves the energy, the original deck is preserved. Output decks are named by phase, e.g. `{pair}_opt_p0_main_estep0.25.dk`, `{pair}_opt_p1_ss0.dk`.
 
 Outputs include optimized nQMCC decks (`.dk`), per-pair results in `{pair}_results.json`, a combined summary in `combined_results.json`, and a full run log in `optimization_log.out`; all saved to the working directory.
 
@@ -74,16 +70,14 @@ A plan is a TOML file with the correlations to optimize. Each step is
 `step = max(rel * |value|, abs)`: `rel` is a fraction of the parameter's current value, `abs` a fixed amount (needed for parameters that start at 0).
 
 ```toml
-[scan]                          # bound only, optional (default: one run at factor 1.0)
-ESEP_factor = [0.9, 1.0, 1.1]   # multiplies the starting deck's ESEP
-
 [groups.main]                   # named groups of deck keys and their steps
-ESEP = { rel = 0.5 }
+ESEP = { abs = 0.5 }            # first phase: step scanned in bound.py (ESEP_STEPS)
 ETA  = { abs = 0.0065 }
-"Q*" = { rel = 0.25 }           # wildcards match every such key the deck has
+"Q*" = { rel = 0.25 }           # all Q correlations in the deck
 
 [groups.ss]
-"SP?" = { abs = 0.2 }
+SPU = { abs = 0.2 }
+WSE = { abs = 0.2 }
 
 [[phase]]                       # bound: phases run in this order
 name   = "p0_main"
@@ -92,12 +86,12 @@ params = ["main"]
 [[phase]]
 name   = "p1_ss0"
 params = ["ss"]
-blocks = "first"                # SS blocks: first | rest | all (needed when a phase has SS keys)
+blocks = "first"                # SS blocks: first | all (needed when a phase has SS keys)
 ```
 
 Shipped plans:
 - `plans/s_shell.toml` — s-shell nuclei (H3, He3, He4): one main + three-body phase
-- `plans/p_shell.toml` — p-shell nuclei: main, then the first SS block, then main + three-body + all SS blocks
+- `plans/p_shell.toml` — p-shell nuclei: main + three-body, then the first SS block, then main + three-body + all SS blocks
 - `plans/sc_scattering.toml` — the `corr` group used at each BSCAT point
 
 D2/F2 three-body correlations (`D2COR`, `F2COR`) start at 0 and only act when the `.3bp` file switches D2/F2 on; add them in their own group (with an `abs` step) to plans used with D2/F2 potentials.

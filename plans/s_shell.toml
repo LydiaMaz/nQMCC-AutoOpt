@@ -1,11 +1,8 @@
 # s-shell nuclei (H3, He3, He4): no spatial-symmetry blocks, one phase.
 # step = max(rel*|value|, abs)
 
-[scan]
-ESEP_factor = [0.9, 1.0, 1.1]   # multiplies the starting deck's ESEP
-
 [groups.main]
-ESEP  = { rel = 0.5 }
+ESEP  = { abs = 0.5 }          # first phase: step scanned in bound.py (ESEP_STEPS)
 ETA   = { abs = 0.0065 }
 ZETA  = { rel = 0.25 }
 FSCAL = { rel = 0.25 }
@@ -14,7 +11,7 @@ AA    = { rel = 0.25 }
 AR    = { rel = 0.25 }
 ALPHA = { rel = 0.25 }
 BETA  = { rel = 0.25 }
-"Q*"  = { rel = 0.25 }          # every Q key the deck has
+"Q*"  = { rel = 0.25 }          # all Q correlations in the deck (QPS1 ... QDDD2)
 
 [groups.threebody]
 DELTA   = { abs = 0.15 }

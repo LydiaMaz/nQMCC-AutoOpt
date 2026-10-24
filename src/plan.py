@@ -10,12 +10,12 @@ from fnmatch import fnmatchcase
 from deck import MAIN_KEYS, SS_KEYS
 #-----------------------------------------------------------------------
 # A plan file (TOML) has
-#   [scan]        ESEP_factor = [...]   multiplies the starting deck's ESEP (optional)
 #   [groups.NAME] KEY = {rel = r, abs = a}   step = max(r*|value|, a)
-#   [[phase]]     name, params = [group names], blocks = first|rest|all
-# blocks picks the spatial-symmetry blocks a phase's SS keys apply to.
+#   [[phase]]     name, params = [group names]
+#                 blocks = first | all   SS blocks the phase's SS keys apply to
+# (bound.py scans ESEP's step in the first phase; see ESEP_STEPS there)
 #-----------------------------------------------------------------------
-BLOCK_CHOICES = ["first", "rest", "all"]
+BLOCK_CHOICES = ["first", "all"]
 #-----------------------------------------------------------------------
 def MatchKeys(pattern, keys):
     return [k for k in keys if fnmatchcase(k, pattern)]
@@ -39,7 +39,6 @@ class phase_t:
     def SSIndices(self, n_ss):
         match self.BLOCKS:
             case "first": return [0] if n_ss > 0 else []
-            case "rest":  return list(range(1, n_ss))
             case "all":   return list(range(n_ss))
             case _:       return []
 #-----------------------------------------------------------------------
@@ -53,14 +52,9 @@ class plan_t:
         with open(file_name, "rb") as f:
             data = tomllib.load(f)
         self.DATA = data
-        unknown = set(data) - {"scan", "groups", "phase"}
+        unknown = set(data) - {"groups", "phase"}
         if unknown:
             raise ValueError(f"{file_name}: unknown sections {sorted(unknown)}")
-#-----------------------------------------------------------------------
-        scan = data.get("scan", {})
-        if set(scan) - {"ESEP_factor"}:
-            raise ValueError(f"{file_name}: [scan] only supports ESEP_factor")
-        self.ESEP_FACTORS = [float(f) for f in scan.get("ESEP_factor", [1.0])]
 #-----------------------------------------------------------------------
         self.GROUPS = {}
         for name, keys in data.get("groups", {}).items():

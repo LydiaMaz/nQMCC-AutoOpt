@@ -2,14 +2,12 @@
 """
 Bound-state optimizer driven by a plan file (see plan.py).
 
-For each ESEP factor in the plan's scan, the starting deck's ESEP is
-multiplied by the factor and the plan's phases run in order, each
-building on the best deck so far. A phase is accepted only if it lowers
-the energy; phases whose SS blocks select nothing (e.g. s-shell decks)
-are skipped.
-
-The best result across all ESEP factors is kept as the final deck.
-If nothing improves the energy the original deck is preserved.
+The plan's phases run in order, each starting from the best deck so far,
+and a phase is kept only if it lowers the energy. The first phase runs
+once per ESEP step in ESEP_STEPS (ESEP step = s * |ESEP|, replacing the
+plan's ESEP step) and keeps the lowest result; later phases use the
+plan's steps. Phases whose SS blocks select nothing (e.g. s-shell decks)
+are skipped. If nothing improves the energy the original deck is preserved.
 
 If ALPHA_DIR is set in the utility file, the run starts from a deck
 seeded with optimized He-4 alpha-core parameters. Otherwise it uses
@@ -57,17 +55,12 @@ def ensure_dir(p):
 def create_pair_name(pot2b, pot3b):
     return f"{pot2b.split('.')[0]}.{pot3b.split('.')[0]}"
 
-def esep_tag(factor):
-    return f"esep{factor:.2f}"
+# The first phase of every plan runs once per ESEP step (fraction of the
+# deck's ESEP; 0 = ESEP fixed) and keeps the best.
+ESEP_STEPS = [0.0, 0.25, 0.5]
 
-def write_esep_scaled_deck(target, src, factor, out):
-    """Copy deck src to out with ESEP multiplied by factor (factor 1.0 returns src)."""
-    if factor == 1.0:
-        return src
-    load_dk_unquoted(target, src)
-    target.DK.ESEP = [f"{float(v)*factor:.5f}" for v in target.DK.ESEP]
-    target.DK.Write(target.PARAMS, quote_path(out))
-    return out
+def estep_tag(step):
+    return f"estep{step:.2f}"
 
 def load_dk_unquoted(target, path):
     p = strip_quotes(path)
@@ -190,11 +183,11 @@ def try_optimize(target, opt_file, dk_out, log_prefix, instructions, e_ref, requ
 # Phase execution helper
 # ---------------------------------------------------------------------------
 
-def run_phase(target, phase_name, instructions, factor, tag,
+def run_phase(target, phase_name, instructions, esep_step, tag,
               pot_dir, pair_name, attempts, e_ref):
-    opt_file = f"{pot_dir}opt/{pair_name}_opt_{tag}_{phase_name}.opt"
-    dk_out   = f"{pot_dir}dk/{pair_name}_opt_{tag}_{phase_name}.dk"
-    log_pref = f"{pot_dir}logs/{pair_name}.opt_{tag}_{phase_name}"
+    opt_file = f"{pot_dir}opt/{pair_name}_opt_{tag}.opt"
+    dk_out   = f"{pot_dir}dk/{pair_name}_opt_{tag}.dk"
+    log_pref = f"{pot_dir}logs/{pair_name}.opt_{tag}"
 
     e, v, ok, msg = try_optimize(
         target, opt_file, dk_out, log_pref, instructions,
@@ -202,15 +195,15 @@ def run_phase(target, phase_name, instructions, factor, tag,
     )
 
     attempts.append({
-        "esep_factor": factor, "tag": tag, "phase": phase_name, "ok": ok,
+        "esep_step": esep_step, "tag": tag, "phase": phase_name, "ok": ok,
         "energy": e if ok else None, "variance": v if ok else None,
         "dk": dk_out, "opt": opt_file, "msg": msg if not ok else "",
     })
 
     if ok:
-        print(f"  ✅ {phase_name}: E={e:.6f}  ΔE={(e - e_ref):.6f}")
+        print(f"  ✅ {tag}: E={e:.6f}  ΔE={(e - e_ref):.6f}")
     else:
-        print(f"  ⚠️  {phase_name} failed: {msg}")
+        print(f"  ⚠️  {tag} failed: {msg}")
 
     return ok, e, v, dk_out, opt_file
 
@@ -266,65 +259,54 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
     else:
         print("No SS blocks: phases that need SS blocks are skipped")
     print(f"PLAN: {plan.FILE_NAME}")
-    print(f"ESEP factors: {plan.ESEP_FACTORS}")
 
     attempts = []
-    best = None
+    target = build_target(util, pot_dir, pot_index)
+    cur = {"energy": e0, "variance": v0, "dk": dk_backup, "opt": None}
+    best_step = None
+    first = True
 
-    # -----------------------------------------------------------------------
-    # ESEP factor scan — run the plan's phases at each factor
-    # -----------------------------------------------------------------------
-    for factor in plan.ESEP_FACTORS:
-        tag = esep_tag(factor)
-        print(f"\n{pair_name}: ESEP factor={factor} (tag={tag})")
-
-        target = build_target(util, pot_dir, pot_index)
-        dk_start = write_esep_scaled_deck(target, dk_backup, factor, f"{pot_dir}dk/{pair_name}_start_{tag}.dk")
-        load_dk_unquoted(target, dk_start)
-
-        # Track the best energy achieved so far at this factor.
-        # Each phase uses this as its improvement threshold.
-        best_e_factor  = e0
-        best_v_factor  = v0
-        best_dk_factor = dk_start
-        best_opt_factor = None
-
-        def update_best(ok, e, v, dk, opt):
-            """Update per-factor best state and reload target deck."""
-            nonlocal best, best_e_factor, best_v_factor, best_dk_factor, best_opt_factor
-            if ok:
-                best_e_factor   = float(e)
-                best_v_factor   = float(v) if is_finite(v) else float("nan")
-                best_dk_factor  = dk
-                best_opt_factor = opt
-                if best is None or best_e_factor < best["energy"]:
-                    best = {"factor": factor, "tag": tag, "energy": best_e_factor,
-                            "variance": best_v_factor, "dk": best_dk_factor,
-                            "opt": best_opt_factor}
-            # Always reload — on success to advance, on failure to recover
-            load_dk_unquoted(target, best_dk_factor)
-
-        for phase in plan.PHASES:
-            if phase.BLOCKS is not None and not phase.SSIndices(n_ss):
-                continue
-            inst = phase.Instructions(target.DK)
-            ok, e, v, dk, opt = run_phase(target, phase.NAME, inst, factor, tag, pot_dir, pair_name, attempts, best_e_factor)
-            update_best(ok, e, v, dk, opt)
+    for phase in plan.PHASES:
+        if phase.BLOCKS is not None and not phase.SSIndices(n_ss):
+            continue
+        steps = ESEP_STEPS if first else [None]
+        first = False
+        print(f"\n{pair_name}: {phase.NAME}" + (f"  ESEP steps {steps}" if steps != [None] else ""))
+        load_dk_unquoted(target, cur["dk"])
+        base = phase.Instructions(target.DK)
+        # one run per ESEP step (first phase), or a single run with the plan's steps
+        best_run = None
+        for step in steps:
+            tag = phase.NAME if step is None else f"{phase.NAME}_{estep_tag(step)}"
+            inst = base if step is None else \
+                [i for i in base if i["key"] != "ESEP"] + [{"key": "ESEP", "rel": step, "abs": 0.0}]
+            load_dk_unquoted(target, cur["dk"])
+            ok, e, v, dk, opt = run_phase(target, phase.NAME, inst, step, tag,
+                                          pot_dir, pair_name, attempts, cur["energy"])
+            if ok and (best_run is None or e < best_run["energy"]):
+                best_run = {"energy": float(e), "variance": float(v) if is_finite(v) else float("nan"),
+                            "dk": dk, "opt": opt, "step": step}
+        if best_run is not None:
+            cur = best_run
+            if best_run["step"] is not None:
+                best_step = best_run["step"]
+                print(f"  continuing from ESEP step {best_step} (E={cur['energy']:.6f})")
+        # continue from the best deck so far
+        load_dk_unquoted(target, cur["dk"])
 
     # --- Finalize: copy the best result to the canonical output paths ---
     final_dk  = f"{pot_dir}dk/{pair_name}_optimized.dk"
     final_opt = f"{pot_dir}opt/{pair_name}_opt.opt"
 
-    if best is None:
-        print("No successful improvements across any ESEP factor; keeping ORIGINAL deck")
+    if cur["opt"] is None:
+        print("No phase improved the energy; keeping ORIGINAL deck")
         shutil.copy2(dk_backup, final_dk)
-        best_e, best_v, best_factor = e0, v0, None
     else:
-        shutil.copy2(best["dk"], final_dk)
-        if best.get("opt") and os.path.exists(best["opt"]):
-            shutil.copy2(best["opt"], final_opt)
-        best_e, best_v, best_factor = best["energy"], best["variance"], best["factor"]
-        print(f"\nBest ESEP factor={best_factor}  E={best_e:.6f}  ΔE={(best_e - e0):.6f}")
+        shutil.copy2(cur["dk"], final_dk)
+        if os.path.exists(cur["opt"]):
+            shutil.copy2(cur["opt"], final_opt)
+        print(f"\nFinal E={cur['energy']:.6f}  ΔE={(cur['energy'] - e0):.6f}  ESEP step={best_step}")
+    best_e, best_v = cur["energy"], cur["variance"]
 
     result = {
         "POTENTIAL_PAIR":     pair_name,
@@ -336,7 +318,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
         "V_OPTIMIZED":        best_v,
         "DELTA_E":            best_e - e0,
         "PLAN":               plan.FILE_NAME,
-        "BEST_ESEP_FACTOR":   best_factor,
+        "BEST_ESEP_STEP":     best_step,
         "FINAL_DK":           final_dk,
         "FINAL_OPT":          final_opt,
         "DK_BACKUP":          dk_backup,
