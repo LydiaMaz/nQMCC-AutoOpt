@@ -56,7 +56,8 @@ def create_pair_name(pot2b, pot3b):
     return f"{pot2b.split('.')[0]}.{pot3b.split('.')[0]}"
 
 # The first phase of every plan runs once per ESEP step (fraction of the
-# deck's ESEP; 0 = ESEP fixed) and keeps the best.
+# deck's ESEP; 0 = ESEP fixed) and keeps the best. A plan's esep_steps
+# replaces this list.
 ESEP_STEPS = [0.0, 0.25, 0.5]
 
 def estep_tag(step):
@@ -269,7 +270,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
     for phase in plan.PHASES:
         if phase.BLOCKS is not None and not phase.SSIndices(n_ss):
             continue
-        steps = ESEP_STEPS if first else [None]
+        steps = (plan.ESEP_STEPS or ESEP_STEPS) if first else [None]
         first = False
         print(f"\n{pair_name}: {phase.NAME}" + (f"  ESEP steps {steps}" if steps != [None] else ""))
         load_dk_unquoted(target, cur["dk"])

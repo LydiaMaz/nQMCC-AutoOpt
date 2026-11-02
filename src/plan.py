@@ -13,7 +13,8 @@ from deck import MAIN_KEYS, SS_KEYS
 #   [groups.NAME] KEY = {rel = r, abs = a}   step = max(r*|value|, a)
 #   [[phase]]     name, params = [group names]
 #                 blocks = first | all   SS blocks the phase's SS keys apply to
-# (bound.py scans ESEP's step in the first phase; see ESEP_STEPS there)
+#   esep_steps = [s, ...]   optional: ESEP steps scanned in the first phase
+#                           (default ESEP_STEPS in bound.py; [0.0] = ESEP fixed)
 #-----------------------------------------------------------------------
 BLOCK_CHOICES = ["first", "all"]
 #-----------------------------------------------------------------------
@@ -52,9 +53,15 @@ class plan_t:
         with open(file_name, "rb") as f:
             data = tomllib.load(f)
         self.DATA = data
-        unknown = set(data) - {"groups", "phase"}
+        unknown = set(data) - {"groups", "phase", "esep_steps"}
         if unknown:
             raise ValueError(f"{file_name}: unknown sections {sorted(unknown)}")
+        self.ESEP_STEPS = data.get("esep_steps")
+        if self.ESEP_STEPS is not None:
+            if not isinstance(self.ESEP_STEPS, list) or not self.ESEP_STEPS \
+               or not all(isinstance(s, (int, float)) for s in self.ESEP_STEPS):
+                raise ValueError(f"{file_name}: esep_steps must be a non-empty list of numbers")
+            self.ESEP_STEPS = [float(s) for s in self.ESEP_STEPS]
 #-----------------------------------------------------------------------
         self.GROUPS = {}
         for name, keys in data.get("groups", {}).items():
